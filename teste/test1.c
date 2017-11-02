@@ -1,11 +1,6 @@
-//
-// Created by aluno on 27/10/17.
-//
-
 #include <stdio.h>
 #include <string.h>
 #include "../include/t2fs.h"
-#include "../include/superblock.h"
 
 int main () {
 
