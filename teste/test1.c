@@ -1,10 +1,11 @@
+#include "../include/t2fs.h"
+
 #include <stdio.h>
 #include <string.h>
-#include "../include/t2fs.h"
 
 int main () {
 
-    struct t2fs_superbloco superbloco;
+    struct t2fs_superbloco SUPERBLOCO;
 
     printf("==== TESTE DO IDENTIFY2 ====\n\n");
 
@@ -14,11 +15,7 @@ int main () {
 
     printf("==== LEITURA DO SUPERBLOCO ====\n\n");
 
-    if(read_superblock(&superbloco)!= 0) {
-        printf("Erro na leitura do superbloco \n\n");
-    } else {
-        printf("DEBUG: Superbloco foi lido corretamente \n\n");
-        print_debug_superblock(superbloco);
-    }
+    if(read_superblock(&SUPERBLOCO) == 0)
+        print_debug_superblock(SUPERBLOCO);
 
 }
