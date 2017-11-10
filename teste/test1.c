@@ -13,9 +13,8 @@ int main () {
     identify2(nomes,200);
     puts(nomes);
 
-    printf("==== LEITURA DO SUPERBLOCO ====\n\n");
+    create2("/fileOne");
 
-    if(read_superblock(&SUPERBLOCO) == 0)
-        print_debug_superblock(SUPERBLOCO);
+    return 0;
 
 }

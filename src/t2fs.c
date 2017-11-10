@@ -11,73 +11,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <locale.h>
 
-/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
-int read_superblock (struct t2fs_superbloco *SUPERBLOCO) {
+struct t2fs_superbloco SUPERBLOCO;
+//struct ? DIRETORIO_CORRENTE;
 
-    BYTE buffer[SECTOR_SIZE];
-
-    if (read_sector(0, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Leitura do superbloco não foi feita com sucesso!\n\n");
-        return -1;
-    } else {
-        memcpy(SUPERBLOCO, buffer, 32);
-        return 0;
-    }
-}
-
-FILE2 create2 (char *filename);
-
-int delete2 (char *filename);
-
-FILE2 open2 (char *filename);
-
-int close2 (FILE2 handle);
-
-int read2 (FILE2 handle, char *buffer, int size);
-
-int write2 (FILE2 handle, char *buffer, int size);
-
-int truncate2 (FILE2 handle);
-
-int seek2 (FILE2 handle, unsigned int offset);
-
-int mkdir2 (char *pathname);
-
-int rmdir2 (char *pathname);
-
-int chdir2 (char *pathname);
-
-int getcwd2 (char *pathname, int size);
-
-DIR2 opendir2 (char *pathname);
-
-#define	END_OF_DIR	1
-int readdir2 (DIR2 handle, DIRENT2 *dentry);
-
-int closedir2 (DIR2 handle);
-
-/* Informa a identificação dos desenvolvedores do t2fs. */
-int identify2 (char *name, int size) {
-
-    char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
-
-    if (size < sizeof(names)/sizeof(char)) {
-        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
-    }
-    else {
-        strcpy(name, names);
-        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
-    }
-
-}
+int first_time = 1;   // variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido).
 
 /* Imprime as informações do superbloco. */
-void print_debug_superblock (struct t2fs_superbloco SUPERBLOCO)
-{
-
-    setlocale(LC_ALL, "");      // para permitir acentuação da língua portuguesa
+void print_superbloco_info() {
 
     printf("Dados do superbloco:\n");
     printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2], SUPERBLOCO.id[3]);
@@ -92,5 +33,75 @@ void print_debug_superblock (struct t2fs_superbloco SUPERBLOCO)
     printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
     printf("Numero total de clusters: %d\n", ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster));
     printf("Numero de setores logicos ocupados pelo diretorio raiz: %d\n\n", (SUPERBLOCO.DataSectorStart - SUPERBLOCO.RootDirCluster));
+
+}
+
+/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
+int read_superblock() {
+
+    BYTE buffer[SECTOR_SIZE];
+
+    if (read_sector(0, (unsigned char *) &buffer) != 0) {
+        printf("ERRO: Leitura do superbloco não foi feita com sucesso!\n\n");
+        return -1;
+    }
+    else {
+        memcpy(&SUPERBLOCO, buffer, 32);
+        first_time = 0;
+        //print_superbloco_info();
+        return 0;
+    }
+
+}
+
+FILE2 create2(char *filename) {
+
+    if(first_time) {
+        read_superblock();
+    }
+
+}
+
+int delete2(char *filename);
+
+FILE2 open2(char *filename);
+
+int close2(FILE2 handle);
+
+int read2(FILE2 handle, char *buffer, int size);
+
+int write2(FILE2 handle, char *buffer, int size);
+
+int truncate2(FILE2 handle);
+
+int seek2(FILE2 handle, unsigned int offset);
+
+int mkdir2(char *pathname);
+
+int rmdir2(char *pathname);
+
+int chdir2(char *pathname);
+
+int getcwd2(char *pathname, int size);
+
+DIR2 opendir2(char *pathname);
+
+#define	END_OF_DIR	1
+int readdir2(DIR2 handle, DIRENT2 *dentry);
+
+int closedir2(DIR2 handle);
+
+/* Informa a identificação dos desenvolvedores do t2fs. */
+int identify2(char *name, int size) {
+
+    char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
+
+    if (size < sizeof(names)/sizeof(char)) {
+        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+    }
+    else {
+        strcpy(name, names);
+        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+    }
 
 }
