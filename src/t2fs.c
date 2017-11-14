@@ -84,8 +84,42 @@ void imprime_conteudo_fat(DWORD *fat, int clusters)
         }
 
     }
-    printf("\n\n");
 }
+
+void le_diretorio_raiz()
+{
+
+
+
+    struct t2fs_record raiz;
+
+    int i;
+
+    for (i=0; i<4; i++) {
+
+        unsigned char buffer[SECTOR_SIZE];
+        read_sector(SUPERBLOCO.DataSectorStart + SUPERBLOCO.RootDirCluster*SUPERBLOCO.SectorsPerCluster+i, &buffer[0]);
+
+        int j=0;
+        for (j=0; j<SECTOR_SIZE;j=j+64)  {
+            memcpy(&raiz, &buffer[j], 64);
+            if (raiz.TypeVal!=0) {
+                printf("Tipo da entrada: Inválido=0, Arquivo = 1, Diretorio = 2: %d", raiz.TypeVal);
+                printf("\nNome do arquivo: %s", raiz.name);
+                printf("\nTamanho do arquivo: %d", raiz.bytesFileSize);
+                printf("\nPrimeiro cluster de dados: %d\n\n", raiz.firstCluster);
+            }
+        }
+
+    }
+
+
+
+
+
+
+}
+
 
 FILE2 create2(char *filename) {
 

@@ -325,5 +325,7 @@ int inicializa_fat(int numSetoresFat);
 //Imprime  conteudo da FAT
 void imprime_conteudo_fat(DWORD *fat, int clusters);
 
+//Realiza a leitura do diretório raiz
+void le_diretorio_raiz();
 
 #endif

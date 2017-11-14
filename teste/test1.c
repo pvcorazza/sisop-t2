@@ -16,7 +16,9 @@ int main () {
     inicializa_fat(SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart);
     imprime_conteudo_fat(FAT, ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster));
 
+    printf("\n======= DIRETÓRIO RAIZ =======\n\n");
 
+    le_diretorio_raiz();
 
     create2("/fileOne");
 
