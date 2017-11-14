@@ -108,10 +108,44 @@ void le_diretorio(int cluster)
                 printf("\nPrimeiro cluster de dados: %d\n\n", raiz.firstCluster);
             }
         }
-
     }
 }
 
+struct lista_caminho_absoluto *cria_lista_caminhos(char *filename) {
+    struct lista_caminho_absoluto *ultimo;
+
+    ultimo = malloc(sizeof(struct lista_caminho_absoluto));
+
+    ultimo->anterior = NULL;
+    ultimo->proximo = NULL;
+
+    if (filename[0] == '/') {
+
+        int i = 1;
+        int j = 0;
+        while (filename[i] != '\0') {
+
+            if (filename[i] == '/') {
+                ultimo->nome_cliente[j] = '\0';
+                j = 0;
+                ultimo->proximo = malloc(sizeof(struct lista_caminho_absoluto));
+                (ultimo->proximo)->anterior = ultimo;
+                ultimo = ultimo->proximo;
+                ultimo->proximo = NULL;
+                i++;
+            }
+            ultimo->nome_cliente[j] = filename[i];
+            i++;
+            j++;
+        }
+        ultimo->nome_cliente[j] = '\0';
+
+        if (ultimo->nome_cliente[i - 1] == '\0') {
+            return ultimo;
+        }
+    }
+    return NULL;
+}
 
 FILE2 create2(char *filename) {
 

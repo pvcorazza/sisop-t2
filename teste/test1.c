@@ -23,9 +23,16 @@ int main () {
     printf("\n======= DIR1 =======\n\n");
 
     le_diretorio(5);
-    
-    create2("/fileOne");
 
+    printf("\n======= CRIA LISTA COM CAMINHO ABSOLUTO =======\n\n");
+
+    struct lista_caminho_absoluto *caminho = cria_lista_caminhos("/fileOne/two/three/four");
+
+    while (caminho != NULL) {
+        puts(caminho->nome_cliente);
+        caminho = caminho->anterior;
+    }
+    
     return 0;
 
 }

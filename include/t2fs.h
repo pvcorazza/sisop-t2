@@ -190,12 +190,12 @@ int seek2 (FILE2 handle, unsigned int offset);
 
 /*-----------------------------------------------------------------------------
 Função:	Criar um novo diretório.
-	O caminho desse novo diretório é aquele informado pelo parâmetro "pathname".
-		O caminho pode ser ser absoluto ou relativo.
+	O lista_caminho_absoluto desse novo diretório é aquele informado pelo parâmetro "pathname".
+		O lista_caminho_absoluto pode ser ser absoluto ou relativo.
 	São considerados erros de criação quaisquer situações em que o diretório não possa ser criado.
 		Isso inclui a existência de um arquivo ou diretório com o mesmo "pathname".
 
-Entra:	pathname -> caminho do diretório a ser criado
+Entra:	pathname -> lista_caminho_absoluto do diretório a ser criado
 
 Saída:	Se a operação foi realizada com sucesso, a função retorna "0" (zero).
 	Em caso de erro, será retornado um valor diferente de zero.
@@ -205,15 +205,15 @@ int mkdir2 (char *pathname);
 
 /*-----------------------------------------------------------------------------
 Função:	Apagar um subdiretório do disco.
-	O caminho do diretório a ser apagado é aquele informado pelo parâmetro "pathname".
+	O lista_caminho_absoluto do diretório a ser apagado é aquele informado pelo parâmetro "pathname".
 	São considerados erros quaisquer situações que impeçam a operação.
 		Isso inclui:
 			(a) o diretório a ser removido não está vazio;
 			(b) "pathname" não existente;
-			(c) algum dos componentes do "pathname" não existe (caminho inválido);
+			(c) algum dos componentes do "pathname" não existe (lista_caminho_absoluto inválido);
 			(d) o "pathname" indicado não é um arquivo;
 
-Entra:	pathname -> caminho do diretório a ser criado
+Entra:	pathname -> lista_caminho_absoluto do diretório a ser criado
 
 Saída:	Se a operação foi realizada com sucesso, a função retorna "0" (zero).
 	Em caso de erro, será retornado um valor diferente de zero.
@@ -223,14 +223,14 @@ int rmdir2 (char *pathname);
 
 /*-----------------------------------------------------------------------------
 Função:	Altera o current path
-	O novo caminho do diretório a ser usado como current path é aquele informado pelo parâmetro "pathname".
+	O novo lista_caminho_absoluto do diretório a ser usado como current path é aquele informado pelo parâmetro "pathname".
 	São considerados erros quaisquer situações que impeçam a operação.
 		Isso inclui:
 			(a) "pathname" não existente;
-			(b) algum dos componentes do "pathname" não existe (caminho inválido);
+			(b) algum dos componentes do "pathname" não existe (lista_caminho_absoluto inválido);
 			(c) o "pathname" indicado não é um diretório;
 
-Entra:	pathname -> caminho do diretório a ser criado
+Entra:	pathname -> lista_caminho_absoluto do diretório a ser criado
 
 Saída:	Se a operação foi realizada com sucesso, a função retorna "0" (zero).
 	Em caso de erro, será retornado um valor diferente de zero.
@@ -257,13 +257,13 @@ int getcwd2 (char *pathname, int size);
 
 /*-----------------------------------------------------------------------------
 Função:	Abre um diretório existente no disco.
-	O caminho desse diretório é aquele informado pelo parâmetro "pathname".
+	O lista_caminho_absoluto desse diretório é aquele informado pelo parâmetro "pathname".
 	Se a operação foi realizada com sucesso, a função:
 		(a) deve retornar o identificador (handle) do diretório
 		(b) deve posicionar o ponteiro de entradas (current entry) na primeira posição válida do diretório "pathname".
 	O handle retornado será usado em chamadas posteriores do sistema de arquivo para fins de manipulação do diretório.
 
-Entra:	pathname -> caminho do diretório a ser aberto
+Entra:	pathname -> lista_caminho_absoluto do diretório a ser aberto
 
 Saída:	Se a operação foi realizada com sucesso, a função retorna o identificador do diretório (handle).
 	Em caso de erro, será retornado um valor negativo.
@@ -327,5 +327,15 @@ void imprime_conteudo_fat(DWORD *fat, int clusters);
 
 //Realiza a leitura da entrada de um diretório e imprime na tela.
 void le_diretorio(int cluster);
+
+// Lista duplamente encadeada com o caminho absoluto
+typedef struct lista_caminho_absoluto {
+    char nome_cliente[54];
+    struct lista_caminho_absoluto *proximo;
+    struct lista_caminho_absoluto *anterior;
+};
+
+//Recebe como entrada um caminho absoluto e cria a lista
+struct lista_caminho_absoluto *cria_lista_caminhos(char *filename);
 
 #endif
