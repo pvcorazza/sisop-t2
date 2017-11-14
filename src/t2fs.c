@@ -86,10 +86,8 @@ void imprime_conteudo_fat(DWORD *fat, int clusters)
     }
 }
 
-void le_diretorio_raiz()
+void le_diretorio(int cluster)
 {
-
-
 
     struct t2fs_record raiz;
 
@@ -98,7 +96,7 @@ void le_diretorio_raiz()
     for (i=0; i<4; i++) {
 
         unsigned char buffer[SECTOR_SIZE];
-        read_sector(SUPERBLOCO.DataSectorStart + SUPERBLOCO.RootDirCluster*SUPERBLOCO.SectorsPerCluster+i, &buffer[0]);
+        read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
 
         int j=0;
         for (j=0; j<SECTOR_SIZE;j=j+64)  {
@@ -112,12 +110,6 @@ void le_diretorio_raiz()
         }
 
     }
-
-
-
-
-
-
 }
 
 

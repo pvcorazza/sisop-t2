@@ -18,8 +18,12 @@ int main () {
 
     printf("\n======= DIRETÓRIO RAIZ =======\n\n");
 
-    le_diretorio_raiz();
+    le_diretorio(SUPERBLOCO.RootDirCluster);
 
+    printf("\n======= DIR1 =======\n\n");
+
+    le_diretorio(5);
+    
     create2("/fileOne");
 
     return 0;
