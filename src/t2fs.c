@@ -12,13 +12,14 @@
 #include <stdio.h>
 #include <string.h>
 
-struct t2fs_superbloco SUPERBLOCO;
-//struct ? DIRETORIO_CORRENTE;
+/* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
+int first_time = 1;
 
-int first_time = 1;   // variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido).
-
-/* Imprime as informações do superbloco. */
 void print_superbloco_info() {
+
+    if(first_time) {
+        read_superblock();
+    }
 
     printf("Dados do superbloco:\n");
     printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2], SUPERBLOCO.id[3]);
@@ -32,11 +33,11 @@ void print_superbloco_info() {
     printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
     printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
     printf("Numero total de clusters: %d\n", ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster));
-    printf("Numero de setores logicos ocupados pelo diretorio raiz: %d\n\n", (SUPERBLOCO.DataSectorStart - SUPERBLOCO.RootDirCluster));
+    //printf("Numero de setores logicos ocupados pelo diretorio raiz: %d\n\n", (SUPERBLOCO.DataSectorStart - SUPERBLOCO.RootDirCluster));
+    printf("Numero de setores lógicos ocupados pela FAT: %d\n", SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart);
 
 }
 
-/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
 int read_superblock() {
 
     BYTE buffer[SECTOR_SIZE];
@@ -48,10 +49,42 @@ int read_superblock() {
     else {
         memcpy(&SUPERBLOCO, buffer, 32);
         first_time = 0;
-        //print_superbloco_info();
         return 0;
     }
+}
 
+int inicializa_fat(int totalSetoresFat)
+{
+    if(first_time) {
+        read_superblock();
+    }
+    int i,j=0;
+    for (i=SUPERBLOCO.pFATSectorStart;i<=totalSetoresFat+1;i++)
+    {
+        if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0)
+        {
+            printf("Não foi possível fazer a leitura da FAT. \n");
+            return -1;
+        }
+        else
+        {
+            j=j+64;
+        }
+    }
+    return 0;
+}
+
+void imprime_conteudo_fat(DWORD *fat, int clusters)
+{
+    int i;
+    for (i = 0; i < clusters; i++)
+    {
+        if (fat[i] != 0) {
+            printf("Cluster %d: %X\n",i, fat[i]);
+        }
+
+    }
+    printf("\n\n");
 }
 
 FILE2 create2(char *filename) {
@@ -105,3 +138,4 @@ int identify2(char *name, int size) {
     }
 
 }
+

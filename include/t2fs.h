@@ -55,7 +55,6 @@ typedef struct {
     DWORD   fileSize;                   /* Numero de bytes do arquivo                          */
 } DIRENT2;
 
-
 /*-----------------------------------------------------------------------------
 Função: Usada para identificar os desenvolvedores do T2FS.
 	Essa função copia um string de identificação para o ponteiro indicado por "name".
@@ -302,6 +301,29 @@ Saída:	Se a operação foi realizada com sucesso, a função retorna "0" (zero).
 	Em caso de erro, será retornado um valor diferente de zero.
 -----------------------------------------------------------------------------*/
 int closedir2 (DIR2 handle);
+
+/*------------------------------------------------------------------------------------------------------
+ * FUNÇÕES AUXILIARES
+------------------------------------------------------------------------------------------------------- */
+
+/* Variável global que armazena conteúdo do superbloco */
+struct t2fs_superbloco SUPERBLOCO;
+//struct ? DIRETORIO_CORRENTE;
+
+/* Estruturas para leitura das FAT */
+DWORD FAT[8192];
+
+/* Imprime as informações do superbloco. */
+void print_superbloco_info();
+
+/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
+int read_superblock();
+
+/* Inicializa o vetor da FAT */
+int inicializa_fat(int numSetoresFat);
+
+//Imprime  conteudo da FAT
+void imprime_conteudo_fat(DWORD *fat, int clusters);
 
 
 #endif
