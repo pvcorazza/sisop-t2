@@ -15,6 +15,9 @@
 /* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
 int first_time = 1;
 
+/* Array para armazenar os diretórios abertos */
+struct dir_aberto diretorios_abertos[MAX_ABERTOS];
+
 void print_superbloco_info() {
 
     if(first_time) {
@@ -111,40 +114,76 @@ void le_diretorio(int cluster)
     }
 }
 
-struct lista_caminho_absoluto *cria_lista_caminhos(char *filename) {
-    struct lista_caminho_absoluto *ultimo;
 
-    ultimo = malloc(sizeof(struct lista_caminho_absoluto));
+struct t2fs_record compara_nomes(int cluster, char *filename) {
 
-    ultimo->anterior = NULL;
-    ultimo->proximo = NULL;
+    char string[MAX_FILE_NAME_SIZE];
+    strcpy(string, filename);
+    char *array[((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) /
+                 SUPERBLOCO.SectorsPerCluster)]; //C-1 clusters possíveis para o diretório
+    int i = 0;
 
-    if (filename[0] == '/') {
+    array[i] = strtok(string, "/");
 
-        int i = 1;
-        int j = 0;
-        while (filename[i] != '\0') {
-
-            if (filename[i] == '/') {
-                ultimo->nome_cliente[j] = '\0';
-                j = 0;
-                ultimo->proximo = malloc(sizeof(struct lista_caminho_absoluto));
-                (ultimo->proximo)->anterior = ultimo;
-                ultimo = ultimo->proximo;
-                ultimo->proximo = NULL;
-                i++;
-            }
-            ultimo->nome_cliente[j] = filename[i];
-            i++;
-            j++;
-        }
-        ultimo->nome_cliente[j] = '\0';
-
-        if (ultimo->nome_cliente[i - 1] == '\0') {
-            return ultimo;
-        }
+    while (array[i] != NULL) {
+        array[++i] = strtok(NULL, "/");
     }
-    return NULL;
+
+    int k = 0;
+    int encontrou = 0;
+    int temp_cluster = cluster;
+
+    struct t2fs_record vazio;
+    strcpy(vazio.name, "");
+    vazio.firstCluster = NULL;
+    vazio.TypeVal = NULL;
+    vazio.bytesFileSize = NULL;
+
+    struct t2fs_record record;
+    struct t2fs_record record_retorno;
+
+
+    while (array[k] != NULL) {
+        for (i = 0; i < 4; i++) {
+
+            unsigned char buffer[SECTOR_SIZE];
+            read_sector(SUPERBLOCO.DataSectorStart + temp_cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
+
+            int j = 0;
+            for (j = 0; j < SECTOR_SIZE; j = j + 64) {
+                memcpy(&record, &buffer[j], 64);
+                if (!strcmp(record.name, array[k])) {
+                    printf("ENCONTROU no CLUSTER %d: ", record.firstCluster);
+                    puts(record.name);
+                    encontrou = 1;
+                    temp_cluster = record.firstCluster;
+                    record_retorno = record;
+
+
+                }
+            }
+        }
+        if (encontrou == 0) {
+            return vazio;
+        }
+        encontrou = 0;
+        k++;
+    }
+
+    return record_retorno;
+
+}
+
+
+int encontra_posicao() {
+    int i = 0;
+    while (i < MAX_ABERTOS) {
+        if (diretorios_abertos[i].aberto != 1) {
+            return i;
+        }
+        i++;
+    }
+    return -1;
 }
 
 FILE2 create2(char *filename) {
@@ -177,7 +216,25 @@ int chdir2(char *pathname);
 
 int getcwd2(char *pathname, int size);
 
-DIR2 opendir2(char *pathname);
+DIR2 opendir2(char *pathname) {
+
+    DIR2 handle = encontra_posicao();
+    struct t2fs_record record;
+
+    if (handle >= 0) {
+        record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+    }
+
+    if (record.name != NULL && record.TypeVal == TYPEVAL_DIRETORIO) {
+        diretorios_abertos[handle].diretorio = record;
+        diretorios_abertos[handle].aberto = 1;
+        return handle;
+    }
+    return -1;
+
+}
+
+
 
 #define	END_OF_DIR	1
 int readdir2(DIR2 handle, DIRENT2 *dentry);

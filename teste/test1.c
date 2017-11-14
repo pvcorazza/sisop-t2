@@ -1,6 +1,8 @@
 #include "../include/t2fs.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 int main () {
 
@@ -26,13 +28,10 @@ int main () {
 
     printf("\n======= CRIA LISTA COM CAMINHO ABSOLUTO =======\n\n");
 
-    struct lista_caminho_absoluto *caminho = cria_lista_caminhos("/fileOne/two/three/four");
+    int retorno = opendir2("/dir1");
 
-    while (caminho != NULL) {
-        puts(caminho->nome_cliente);
-        caminho = caminho->anterior;
-    }
-    
+    printf("Handle de retorno: %d ", retorno);
+
     return 0;
 
 }

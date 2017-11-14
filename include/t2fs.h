@@ -9,6 +9,8 @@
 #define TYPEVAL_REGULAR     0x01
 #define TYPEVAL_DIRETORIO   0x02
 
+#define MAX_ABERTOS 10
+
 typedef int FILE2;
 typedef int DIR2;
 
@@ -329,13 +331,23 @@ void imprime_conteudo_fat(DWORD *fat, int clusters);
 void le_diretorio(int cluster);
 
 // Lista duplamente encadeada com o caminho absoluto
-typedef struct lista_caminho_absoluto {
-    char nome_cliente[54];
+struct lista_caminho_absoluto {
+    char nome[55];
     struct lista_caminho_absoluto *proximo;
     struct lista_caminho_absoluto *anterior;
 };
 
-//Recebe como entrada um caminho absoluto e cria a lista
-struct lista_caminho_absoluto *cria_lista_caminhos(char *filename);
+//Estrutura de um diretório aberto
+struct dir_aberto {
+    struct t2fs_record diretorio;
+    int aberto;
+};
+
+//Busca por uma posição onde não tenha um diretório aberto
+int encontra_posicao();
+
+struct t2fs_record compara_nomes(int cluster, char *filename);
+
+
 
 #endif
