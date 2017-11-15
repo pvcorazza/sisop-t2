@@ -327,7 +327,7 @@ int inicializa_fat(int numSetoresFat);
 //Imprime  conteudo da FAT
 void imprime_conteudo_fat(DWORD *fat, int clusters);
 
-//Realiza a leitura da entrada de um diretório e imprime na tela.
+//Realiza a leitura de todas as entradas de um diretório e imprime na tela.
 void le_diretorio(int cluster);
 
 // Lista duplamente encadeada com o caminho absoluto
@@ -340,11 +340,12 @@ struct lista_caminho_absoluto {
 //Estrutura de um diretório aberto
 struct dir_aberto {
     struct t2fs_record diretorio;
+    int current_entry;
     int aberto;
 };
 
 //Busca por uma posição onde não tenha um diretório aberto
-int encontra_posicao();
+DIR2 encontra_posicao();
 
 struct t2fs_record compara_nomes(int cluster, char *filename);
 

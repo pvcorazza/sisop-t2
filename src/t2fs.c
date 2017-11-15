@@ -115,6 +115,7 @@ void le_diretorio(int cluster)
 }
 
 
+
 struct t2fs_record compara_nomes(int cluster, char *filename) {
 
     char string[MAX_FILE_NAME_SIZE];
@@ -139,8 +140,8 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
     vazio.TypeVal = NULL;
     vazio.bytesFileSize = NULL;
 
-    struct t2fs_record record;
-    struct t2fs_record record_retorno;
+    struct t2fs_record record = vazio;
+    struct t2fs_record record_retorno = vazio;
 
 
     while (array[k] != NULL) {
@@ -175,7 +176,7 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
 }
 
 
-int encontra_posicao() {
+DIR2 encontra_posicao() {
     int i = 0;
     while (i < MAX_ABERTOS) {
         if (diretorios_abertos[i].aberto != 1) {
@@ -233,7 +234,6 @@ int getcwd2(char *pathname, int size);
 
 DIR2 opendir2(char *pathname) {
 
-    //FALTA: (b) deve posicionar o ponteiro de entradas (current entry) na primeira posição válida do diretório "pathname".
 
     if (first_time) {
         read_superblock();
@@ -244,20 +244,70 @@ DIR2 opendir2(char *pathname) {
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+        if (record.name != NULL && record.TypeVal == TYPEVAL_DIRETORIO) {
+            diretorios_abertos[handle].diretorio = record;
+            diretorios_abertos[handle].aberto = 1;
+            diretorios_abertos[handle].current_entry = 0; //Conferir se é isso mesmo.
+            return handle;
+        }
     }
 
-    if (record.name != NULL && record.TypeVal == TYPEVAL_DIRETORIO) {
-        diretorios_abertos[handle].diretorio = record;
-        diretorios_abertos[handle].aberto = 1;
-        return handle;
-    }
     return -1;
 
 }
 
-
 #define	END_OF_DIR	1
-int readdir2(DIR2 handle, DIRENT2 *dentry);
+
+int readdir2(DIR2 handle, DIRENT2 *dentry) {
+    if (first_time) {
+        read_superblock();
+    }
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        if (diretorios_abertos[handle].diretorio.TypeVal == TYPEVAL_DIRETORIO) {
+
+            struct t2fs_record record;
+            int current_entry = diretorios_abertos[handle].current_entry;
+            int i;
+
+            /* Faz uma busca pelo cluster de diretório pela entrada de número "current_entry",
+             * caso encontre, copia os dados para a estrutura dentry, incrementa a "current_entry
+             * do diretório e retorna indicando sucesso */
+            for (i = 0; i < 4; i++) {
+                unsigned char buffer[SECTOR_SIZE];
+                read_sector(SUPERBLOCO.DataSectorStart +
+                            diretorios_abertos[handle].diretorio.firstCluster * SUPERBLOCO.SectorsPerCluster + i,
+                            &buffer[0]);
+
+                int j = 0;
+                for (j = 0; j < SECTOR_SIZE; j = j + 64) {
+                    memcpy(&record, &buffer[j], 64);
+                    if (record.TypeVal == 1 || record.TypeVal == 2) {
+                        if (current_entry == 0) {
+
+                            dentry->fileType = record.TypeVal;
+                            dentry->fileSize = record.bytesFileSize;
+                            strcpy(dentry->name, record.name);
+
+                            diretorios_abertos[handle].current_entry++;
+
+                            return 0;
+                        }
+                        current_entry--;
+                    }
+                }
+            }
+
+            /* Caso ja tenha chegado na última entrada válida do diretório
+             * retorna erro */
+            current_entry++;
+            if (current_entry > 0) {
+                return -END_OF_DIR;
+            }
+        }
+    }
+    return -2;
+}
 
 int closedir2(DIR2 handle) {
 

@@ -26,14 +26,49 @@ int main () {
 
     le_diretorio(5);
 
-    printf("\n======= CRIA LISTA COM CAMINHO ABSOLUTO =======\n\n");
+    printf("\n======= OPENDIR2 =======\n\n");
 
+    //Dir1
     int retorno = opendir2("/dir1");
+    printf("Handle de retorno: %d \n", retorno);
 
-    printf("Handle de retorno: %d ", retorno);
+    //Raiz
+    retorno = opendir2("/.");
+    printf("Handle de retorno: %d \n", retorno);
 
+    printf("\n======= READDIR2 =======\n\n");
+
+    DIRENT2 *dentry;
+
+    int retorno_readdir = readdir2(0, dentry);
+
+    printf("Nome em dentry: %s\n", dentry->name);
+    printf("Retorno da readdir2: %d\n", retorno_readdir);
+
+    retorno_readdir = readdir2(0, dentry);
+
+    printf("Nome em dentry: %s\n", dentry->name);
+    printf("Retorno da readdir2: %d\n", retorno_readdir);
+
+    retorno_readdir = readdir2(0, dentry);
+
+    printf("Nome em dentry: %s\n", dentry->name);
+    printf("Retorno da readdir2: %d\n", retorno_readdir);
+
+    retorno_readdir = readdir2(0, dentry);
+
+    printf("Nome em dentry: %s\n", dentry->name);
+    printf("Retorno da readdir2: %d\n", retorno_readdir);
+
+    retorno_readdir = readdir2(0, dentry);
+    printf("Nome em dentry: %s\n", dentry->name);
+    printf("Retorno da readdir2: %d\n", retorno_readdir);
+
+
+    printf("\n======= CLOSEDIR2 =======\n\n");
+
+    //Fecha diretório /dir1
     int close = closedir2(0);
-
     printf("Retorno do closedir: %d ", close);
 
     return 0;
