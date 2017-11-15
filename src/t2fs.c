@@ -12,16 +12,32 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Array para armazenar os diretórios abertos */
+struct dir_aberto diretorios_abertos[MAX_ABERTOS];
 /* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
 int first_time = 1;
 
-/* Array para armazenar os diretórios abertos */
-struct dir_aberto diretorios_abertos[MAX_ABERTOS];
+int inicializa() {
+
+    if (read_superblock() == 0) {
+
+
+        TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
+        NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
+
+        first_time = 0;
+        inicializa_fat();
+        return 0;
+
+    }
+
+    exit(1);
+}
 
 void print_superbloco_info() {
 
     if(first_time) {
-        read_superblock();
+        inicializa();
     }
 
     printf("Dados do superbloco:\n");
@@ -35,13 +51,13 @@ void print_superbloco_info() {
     printf("Cluster onde inicia o arquivo correspondente ao diretorio raiz: %d\n", SUPERBLOCO.RootDirCluster);
     printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
     printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
-    printf("Numero total de clusters: %d\n", ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster));
+    printf("Numero total de clusters: %d\n", NUM_CLUSTERS);
     //printf("Numero de setores logicos ocupados pelo diretorio raiz: %d\n\n", (SUPERBLOCO.DataSectorStart - SUPERBLOCO.RootDirCluster));
-    printf("Numero de setores lógicos ocupados pela FAT: %d\n", SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart);
+    printf("Numero de setores lógicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
 
 }
 
-int read_superblock() {
+static int read_superblock() {
 
     BYTE buffer[SECTOR_SIZE];
 
@@ -51,18 +67,14 @@ int read_superblock() {
     }
     else {
         memcpy(&SUPERBLOCO, buffer, 32);
-        first_time = 0;
         return 0;
     }
 }
 
-int inicializa_fat(int totalSetoresFat)
+static int inicializa_fat()
 {
-    if(first_time) {
-        read_superblock();
-    }
     int i,j=0;
-    for (i=SUPERBLOCO.pFATSectorStart;i<=totalSetoresFat+1;i++)
+    for (i = SUPERBLOCO.pFATSectorStart; i <= TOTAL_SETORES_FAT + 1; i++)
     {
         if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0)
         {
@@ -77,13 +89,16 @@ int inicializa_fat(int totalSetoresFat)
     return 0;
 }
 
-void imprime_conteudo_fat(DWORD *fat, int clusters)
-{
+
+void imprime_conteudo_fat() {
+    if (first_time) {
+        inicializa();
+    }
     int i;
-    for (i = 0; i < clusters; i++)
+    for (i = 0; i < NUM_CLUSTERS; i++)
     {
-        if (fat[i] != 0) {
-            printf("Cluster %d: %X\n",i, fat[i]);
+        if (FAT[i] != 0) {
+            printf("Cluster %d: %X\n", i, FAT[i]);
         }
 
     }
@@ -91,6 +106,9 @@ void imprime_conteudo_fat(DWORD *fat, int clusters)
 
 void le_diretorio(int cluster)
 {
+    if (first_time) {
+        inicializa();
+    }
 
     struct t2fs_record raiz;
 
@@ -114,14 +132,11 @@ void le_diretorio(int cluster)
     }
 }
 
+void divide_caminho(char *string, char *array[]) {
 
-
-struct t2fs_record compara_nomes(int cluster, char *filename) {
-
-    char string[MAX_FILE_NAME_SIZE];
-    strcpy(string, filename);
-    char *array[((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) /
-                 SUPERBLOCO.SectorsPerCluster)]; //C-1 clusters possíveis para o diretório
+    if (first_time) {
+        inicializa();
+    }
     int i = 0;
 
     array[i] = strtok(string, "/");
@@ -129,6 +144,21 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
     while (array[i] != NULL) {
         array[++i] = strtok(NULL, "/");
     }
+}
+
+struct t2fs_record compara_nomes(int cluster, char *filename) {
+
+    if (first_time) {
+        inicializa();
+    }
+    char string[MAX_FILE_NAME_SIZE];
+    strcpy(string, filename);
+
+    char *array[NUM_CLUSTERS]; //C-1 clusters possíveis para o diretório
+
+    divide_caminho(string, array);
+
+    int i = 0;
 
     int k = 0;
     int encontrou = 0;
@@ -136,9 +166,9 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
 
     struct t2fs_record vazio;
     strcpy(vazio.name, "");
-    vazio.firstCluster = NULL;
-    vazio.TypeVal = NULL;
-    vazio.bytesFileSize = NULL;
+    vazio.firstCluster = (DWORD) NULL;
+    vazio.TypeVal = (int) NULL;
+    vazio.bytesFileSize = (DWORD) NULL;
 
     struct t2fs_record record = vazio;
     struct t2fs_record record_retorno = vazio;
@@ -154,13 +184,10 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
             for (j = 0; j < SECTOR_SIZE; j = j + 64) {
                 memcpy(&record, &buffer[j], 64);
                 if (!strcmp(record.name, array[k])) {
-                    printf("ENCONTROU no CLUSTER %d: ", record.firstCluster);
                     puts(record.name);
                     encontrou = 1;
                     temp_cluster = record.firstCluster;
                     record_retorno = record;
-
-
                 }
             }
         }
@@ -177,6 +204,9 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
 
 
 DIR2 encontra_posicao() {
+    if (first_time) {
+        inicializa();
+    }
     int i = 0;
     while (i < MAX_ABERTOS) {
         if (diretorios_abertos[i].aberto != 1) {
@@ -189,6 +219,10 @@ DIR2 encontra_posicao() {
 
 /* Informa a identificação dos desenvolvedores do t2fs. */
 int identify2(char *name, int size) {
+
+    if (first_time) {
+        inicializa();
+    }
 
     char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
 
@@ -205,38 +239,68 @@ int identify2(char *name, int size) {
 FILE2 create2(char *filename) {
 
     if(first_time) {
-        read_superblock();
+        inicializa();
     }
+    return -1;
 
 }
 
-int delete2(char *filename);
+int delete2(char *filename) {
+    return -1;
+}
 
-FILE2 open2(char *filename);
+FILE2 open2(char *filename) {
+    return -1;
+}
 
-int close2(FILE2 handle);
+int close2(FILE2 handle) {
+    return -1;
+}
 
-int read2(FILE2 handle, char *buffer, int size);
+int read2(FILE2 handle, char *buffer, int size) {
+    return -1;
+}
 
-int write2(FILE2 handle, char *buffer, int size);
+int write2(FILE2 handle, char *buffer, int size) {
+    return -1;
+}
 
-int truncate2(FILE2 handle);
+int truncate2(FILE2 handle) {
+    return -1;
+}
 
-int seek2(FILE2 handle, unsigned int offset);
+int seek2(FILE2 handle, unsigned int offset) {
+    return -1;
+}
 
-int mkdir2(char *pathname);
+int mkdir2(char *pathname) {
 
-int rmdir2(char *pathname);
+    if (first_time) {
+        inicializa();
+    }
 
-int chdir2(char *pathname);
 
-int getcwd2(char *pathname, int size);
+    return -1;
+
+
+}
+
+int rmdir2(char *pathname) {
+    return -1;
+}
+
+int chdir2(char *pathname) {
+    return -1;
+}
+
+int getcwd2(char *pathname, int size) {
+    return -1;
+}
 
 DIR2 opendir2(char *pathname) {
 
-
     if (first_time) {
-        read_superblock();
+        inicializa();
     }
 
     DIR2 handle = encontra_posicao();
@@ -260,7 +324,7 @@ DIR2 opendir2(char *pathname) {
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
     if (first_time) {
-        read_superblock();
+        inicializa();
     }
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {
@@ -312,7 +376,7 @@ int readdir2(DIR2 handle, DIRENT2 *dentry) {
 int closedir2(DIR2 handle) {
 
     if (first_time) {
-        read_superblock();
+        inicializa();
     }
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {

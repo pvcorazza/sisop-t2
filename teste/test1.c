@@ -15,8 +15,7 @@ int main () {
     print_superbloco_info();
 
     printf("\n======= FAT =======\n\n");
-    inicializa_fat(SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart);
-    imprime_conteudo_fat(FAT, ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster));
+    imprime_conteudo_fat();
 
     printf("\n======= DIRETÓRIO RAIZ =======\n\n");
 

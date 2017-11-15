@@ -312,20 +312,29 @@ int closedir2 (DIR2 handle);
 struct t2fs_superbloco SUPERBLOCO;
 //struct ? DIRETORIO_CORRENTE;
 
+/* Número de setores que compõem a FAT */
+int TOTAL_SETORES_FAT;
+
+/* Total de clusters que compõem o disco */
+int NUM_CLUSTERS;
+
 /* Estruturas para leitura das FAT */
 DWORD FAT[8192];
+
+/* Inicializa variáveis e estruturas necessárias para correta execução */
+int inicializa();
 
 /* Imprime as informações do superbloco. */
 void print_superbloco_info();
 
 /* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
-int read_superblock();
+static int read_superblock();
 
 /* Inicializa o vetor da FAT */
-int inicializa_fat(int numSetoresFat);
+static int inicializa_fat();
 
 //Imprime  conteudo da FAT
-void imprime_conteudo_fat(DWORD *fat, int clusters);
+void imprime_conteudo_fat();
 
 //Realiza a leitura de todas as entradas de um diretório e imprime na tela.
 void le_diretorio(int cluster);
@@ -346,6 +355,9 @@ struct dir_aberto {
 
 //Busca por uma posição onde não tenha um diretório aberto
 DIR2 encontra_posicao();
+
+//Recebe uma string com o caminho absoluto e divide esse caminho inserindo no array informado por parâmetro
+void divide_caminho(char *string, char *array[]);
 
 struct t2fs_record compara_nomes(int cluster, char *filename);
 
