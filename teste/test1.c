@@ -32,6 +32,10 @@ int main () {
 
     printf("Handle de retorno: %d ", retorno);
 
+    int close = closedir2(0);
+
+    printf("Retorno do closedir: %d ", close);
+
     return 0;
 
 }

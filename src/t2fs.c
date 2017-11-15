@@ -186,6 +186,21 @@ int encontra_posicao() {
     return -1;
 }
 
+/* Informa a identificação dos desenvolvedores do t2fs. */
+int identify2(char *name, int size) {
+
+    char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
+
+    if (size < sizeof(names) / sizeof(char)) {
+        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+    } else {
+        strcpy(name, names);
+        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+    }
+
+}
+
+
 FILE2 create2(char *filename) {
 
     if(first_time) {
@@ -218,10 +233,16 @@ int getcwd2(char *pathname, int size);
 
 DIR2 opendir2(char *pathname) {
 
+    //FALTA: (b) deve posicionar o ponteiro de entradas (current entry) na primeira posição válida do diretório "pathname".
+
+    if (first_time) {
+        read_superblock();
+    }
+
     DIR2 handle = encontra_posicao();
     struct t2fs_record record;
 
-    if (handle >= 0) {
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
         record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
     }
 
@@ -235,24 +256,24 @@ DIR2 opendir2(char *pathname) {
 }
 
 
-
 #define	END_OF_DIR	1
 int readdir2(DIR2 handle, DIRENT2 *dentry);
 
-int closedir2(DIR2 handle);
+int closedir2(DIR2 handle) {
 
-/* Informa a identificação dos desenvolvedores do t2fs. */
-int identify2(char *name, int size) {
-
-    char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
-
-    if (size < sizeof(names)/sizeof(char)) {
-        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+    if (first_time) {
+        read_superblock();
     }
-    else {
-        strcpy(name, names);
-        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        if (diretorios_abertos[handle].aberto == 1) {
+            diretorios_abertos[handle].aberto = 0;
+            return 0;
+        }
     }
+
+    return -1;
 
 }
+
 
