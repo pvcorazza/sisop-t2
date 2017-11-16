@@ -414,9 +414,6 @@ int le_bytes_arquivo(int size, int cluster, int file_size, char *buffer) {
     int primeiro_setor = cluster * 4 + SUPERBLOCO.DataSectorStart;
     char aux[SECTOR_SIZE];
 
-    printf("PRIMEIRO SETOR %d", primeiro_setor);
-    printf("SIZE TEMP %d", size);
-
     int tamanho = file_size + (SECTOR_SIZE * 4) + 1;
 
     char temp2[tamanho];
@@ -437,7 +434,7 @@ int le_bytes_arquivo(int size, int cluster, int file_size, char *buffer) {
 
     while (next != 0xFFFFFFFF) {
         for (i = 0; i < 4; i++) {
-            if (read_sector((unsigned int) primeiro_setor + i, (unsigned char *) &aux) == 0) {
+            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i, (unsigned char *) &aux) == 0) {
                 strcat(temp2, aux);
             } else {
                 return -1;
@@ -626,14 +623,16 @@ int read2(FILE2 handle, char *buffer, int size) {
                                                arquivos_abertos[handle].arquivo.firstCluster,
                                                arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
                 if (retorno >= 0) {
-                    puts(buffer);
+                    // puts(buffer);
+                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
                     return arquivos_abertos[handle].arquivo.bytesFileSize;
                 }
             } else {
                 int retorno = le_bytes_arquivo(size, arquivos_abertos[handle].arquivo.firstCluster,
                                                arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
                 if (retorno >= 0) {
-                    puts(buffer);
+                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].current_pointer + size;
+                    // puts(buffer);
                     return size;
 
 
