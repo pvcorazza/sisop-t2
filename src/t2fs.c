@@ -14,14 +14,15 @@
 
 /* Array para armazenar os diretórios abertos */
 struct dir_aberto diretorios_abertos[MAX_ABERTOS];
+struct arq_aberto arquivos_abertos[MAX_ABERTOS];
+
 /* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
 int first_time = 1;
-char current_path[1024] = "/";
+char current_path[8192] = "/";
 
 int inicializa() {
 
     if (read_superblock() == 0) {
-
 
         TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
         NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
@@ -37,12 +38,13 @@ int inicializa() {
 
 void print_superbloco_info() {
 
-    if(first_time) {
+    if (first_time) {
         inicializa();
     }
 
     printf("Dados do superbloco:\n");
-    printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2], SUPERBLOCO.id[3]);
+    printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2],
+           SUPERBLOCO.id[3]);
     printf("Versao do Sistema de Arquivos: %X\n", SUPERBLOCO.version);
     printf("Numero de setores logicos do superbloco: %d\n", SUPERBLOCO.SuperBlockSize);
     printf("Tamanho total da particao (em bytes): %d\n", SUPERBLOCO.DiskSize);
@@ -64,26 +66,20 @@ static int read_superblock() {
     if (read_sector(0, (unsigned char *) &buffer) != 0) {
         printf("ERRO: Leitura do superbloco não foi feita com sucesso!\n\n");
         return -1;
-    }
-    else {
+    } else {
         memcpy(&SUPERBLOCO, buffer, 32);
         return 0;
     }
 }
 
-static int inicializa_fat()
-{
-    int i,j=0;
-    for (i = SUPERBLOCO.pFATSectorStart; i <= TOTAL_SETORES_FAT + 1; i++)
-    {
-        if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0)
-        {
+static int inicializa_fat() {
+    int i, j = 0;
+    for (i = SUPERBLOCO.pFATSectorStart; i <= TOTAL_SETORES_FAT + 1; i++) {
+        if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0) {
             printf("Não foi possível fazer a leitura da FAT. \n");
             return -1;
-        }
-        else
-        {
-            j=j+64;
+        } else {
+            j = j + 64;
         }
     }
     return 0;
@@ -95,8 +91,7 @@ void imprime_conteudo_fat() {
         inicializa();
     }
     int i;
-    for (i = 0; i < NUM_CLUSTERS; i++)
-    {
+    for (i = 0; i < NUM_CLUSTERS; i++) {
         if (FAT[i] != 0) {
             printf("Cluster %d: %X\n", i, FAT[i]);
         }
@@ -104,8 +99,7 @@ void imprime_conteudo_fat() {
     }
 }
 
-void le_diretorio(int cluster)
-{
+void le_diretorio(int cluster) {
     if (first_time) {
         inicializa();
     }
@@ -114,15 +108,15 @@ void le_diretorio(int cluster)
 
     int i;
 
-    for (i=0; i<4; i++) {
+    for (i = 0; i < 4; i++) {
 
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
 
-        int j=0;
-        for (j=0; j<SECTOR_SIZE;j=j+64)  {
+        int j = 0;
+        for (j = 0; j < SECTOR_SIZE; j = j + 64) {
             memcpy(&raiz, &buffer[j], 64);
-            if (raiz.TypeVal!=0) {
+            if (raiz.TypeVal != 0) {
                 printf("Tipo da entrada: Inválido=0, Arquivo = 1, Diretorio = 2: %d", raiz.TypeVal);
                 printf("\nNome do arquivo: %s", raiz.name);
                 printf("\nTamanho do arquivo: %d", raiz.bytesFileSize);
@@ -326,6 +320,20 @@ DIR2 busca_pos_array_dir() {
     return -1;
 }
 
+FILE2 busca_pos_array_arq() {
+    if (first_time) {
+        inicializa();
+    }
+    int i = 0;
+    while (i < MAX_ABERTOS) {
+        if (arquivos_abertos[i].aberto != 1) {
+            return i;
+        }
+        i++;
+    }
+    return -1;
+}
+
 int busca_pos_livre_FAT() {
 
     DWORD buffer[64];
@@ -395,24 +403,106 @@ int identify2(char *name, int size) {
 
 FILE2 create2(char *filename) {
 
-    if(first_time) {
+    if (first_time) {
         inicializa();
     }
 
+    char inicio[strlen(filename)];
+    char final[strlen(filename)];
 
+    if (divide_caminho(filename, inicio, final) < 0) {
+        return -1;
+    }
+
+    struct t2fs_record diretorio_pai;
+    struct t2fs_record record;
+
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+
+    if (record.TypeVal != NULL) {
+        printf("ERRO: O arquivo ja existe.\n");
+        return -1;
+    }
+
+    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+
+    if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) { //Pode criar arquivo
+
+        int posicao_FAT = busca_pos_livre_FAT();
+
+        if (posicao_FAT >= 0) {
+
+            int posicao_dir = busca_entrada_livre_dir(diretorio_pai.firstCluster);
+
+            if (posicao_dir >= 0) {
+
+                if (insere_entrada_FAT(posicao_FAT, 0xFFFFFFFF) < 0) {
+                    return -1;
+                }
+
+                struct t2fs_record novo;
+
+                strcpy(novo.name, final);
+                novo.firstCluster = (DWORD) posicao_FAT;
+                novo.TypeVal = TYPEVAL_REGULAR;
+                novo.bytesFileSize = 0;
+
+                if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+                    return -1;
+                }
+
+                FILE2 handle = busca_pos_array_arq();
+
+                if (handle >= 0 && handle <= MAX_ABERTOS) {
+                    arquivos_abertos[handle].arquivo = record;
+                    arquivos_abertos[handle].aberto = 1;
+                    arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
+                    return handle;
+                }
+            }
+        }
+    }
     return -1;
-
 }
+
 
 int delete2(char *filename) {
     return -1;
 }
 
 FILE2 open2(char *filename) {
+    if (first_time) {
+        inicializa();
+    }
+
+    FILE2 handle = busca_pos_array_arq();
+    struct t2fs_record record;
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+        if (record.name != NULL && record.TypeVal == TYPEVAL_REGULAR) {
+            arquivos_abertos[handle].arquivo = record;
+            arquivos_abertos[handle].aberto = 1;
+            arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
+            return handle;
+        }
+    }
+
     return -1;
 }
 
 int close2(FILE2 handle) {
+    if (first_time) {
+        inicializa();
+    }
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        if (arquivos_abertos[handle].aberto == 1) {
+            arquivos_abertos[handle].aberto = 0;
+            return 0;
+        }
+    }
+
     return -1;
 }
 
@@ -560,7 +650,6 @@ int rmdir2(char *pathname) {
 }
 
 
-
 int chdir2(char *pathname) {
 
     struct t2fs_record current;
@@ -587,7 +676,6 @@ int getcwd2(char *pathname, int size) {
         strcpy(pathname, current_path);
         return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
     }
-
 }
 
 DIR2 opendir2(char *pathname) {
@@ -613,7 +701,7 @@ DIR2 opendir2(char *pathname) {
 
 }
 
-#define	END_OF_DIR	1
+#define    END_OF_DIR    1
 
 int readdir2(DIR2 handle, DIRENT2 *dentry) {
     if (first_time) {

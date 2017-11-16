@@ -353,6 +353,14 @@ struct dir_aberto {
     int aberto;
 };
 
+//Estrutura de um arquivo aberto
+struct arq_aberto {
+    struct t2fs_record arquivo;
+    int current_pointer;
+    int aberto;
+};
+
+
 //Busca por uma posição onde não tenha um diretório aberto
 DIR2 busca_pos_array_dir();
 

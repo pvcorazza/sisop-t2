@@ -100,9 +100,11 @@ int main () {
     chdir2(pathname);
 
     printf("\n======= GETCWD2 =======\n\n");
-    
+
     getcwd2(nome, 200);
     printf("Diretório corrente é: %s\n", nome);
+
+    return 0;
 
 
 
