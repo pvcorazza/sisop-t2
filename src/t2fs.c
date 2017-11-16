@@ -152,7 +152,7 @@ int conta_entradas_diretorio(int cluster) {
     return entradas;
 }
 
-int insere_diretorio(int cluster, struct t2fs_record entrada, int posicao) {
+int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
     if (first_time) {
         inicializa();
     }
@@ -203,8 +203,8 @@ int busca_entrada_livre_dir(int cluster) {
     return -1;
 }
 
-int busca_posicao_dir(char *name, int cluster) {
-    struct t2fs_record raiz;
+int busca_posicao_entrada(char *name, int cluster) {
+    struct t2fs_record record;
 
     int i;
     int entrada = 0;
@@ -215,8 +215,8 @@ int busca_posicao_dir(char *name, int cluster) {
 
         int j = 0;
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {
-            memcpy(&raiz, &buffer[j], 64);
-            if (strcmp(name, raiz.name) == 0) {
+            memcpy(&record, &buffer[j], 64);
+            if (strcmp(name, record.name) == 0) {
                 return entrada;
             }
             entrada++;
@@ -371,8 +371,18 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
         return -1;
     }
 
-    buffer[posicao] = entrada;
+    while (buffer[posicao] >= 0x00000002 && buffer[posicao] <= 0xFFFFFFFD) {
+        printf("ENTROU NO WHILE, posicao: %d, buffer: %X\n", posicao, buffer[posicao]);
+        int proxima = buffer[posicao];
+        buffer[posicao] = entrada;
+        if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+            printf("Não foi possível fazer a escrita da FAT. \n");
+            return -1;
+        }
+        posicao = proxima;
+    }
 
+    buffer[posicao] = entrada;
     if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
         printf("Não foi possível fazer a escrita da FAT. \n");
         return -1;
@@ -447,7 +457,7 @@ FILE2 create2(char *filename) {
                 novo.TypeVal = TYPEVAL_REGULAR;
                 novo.bytesFileSize = 0;
 
-                if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+                if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                     return -1;
                 }
 
@@ -467,7 +477,44 @@ FILE2 create2(char *filename) {
 
 
 int delete2(char *filename) {
-    return -1;
+    if (first_time) {
+        inicializa();
+    }
+
+    char inicio[strlen(filename)];
+    char final[strlen(filename)];
+
+    if (divide_caminho(filename, inicio, final) < 0) {
+        return -1;
+    }
+
+    struct t2fs_record diretorio_pai;
+    struct t2fs_record record;
+
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+
+    if (record.TypeVal == TYPEVAL_REGULAR) {
+
+        struct t2fs_record novo = {0};
+
+        diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+
+        int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
+
+        if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+            return -1;
+        }
+
+        if (insere_entrada_FAT(record.firstCluster, 0x00000000) < 0) {
+            return -1;
+        }
+
+        //Verificar se é necessário zerar o cluster do arquivo também, ou somente a entrada na FAT.
+
+        return 0;
+
+    }
+    return -2;
 }
 
 FILE2 open2(char *filename) {
@@ -569,17 +616,17 @@ int mkdir2(char *pathname) {
                 novo.TypeVal = TYPEVAL_DIRETORIO;
                 novo.bytesFileSize = 1024;
 
-                if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+                if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                     return -1;
                 }
 
                 strcpy(novo.name, ".");
-                if (insere_diretorio(novo.firstCluster, novo, 0) < 0) {
+                if (insere_entrada(novo.firstCluster, novo, 0) < 0) {
                     return -1;
                 }
 
                 strcpy(diretorio_pai.name, "..");
-                if (insere_diretorio(novo.firstCluster, diretorio_pai, 1) < 0) {
+                if (insere_entrada(novo.firstCluster, diretorio_pai, 1) < 0) {
                     return -1;
                 }
 
@@ -622,20 +669,20 @@ int rmdir2(char *pathname) {
 
             struct t2fs_record novo = {0};
 
-            if (insere_diretorio(record.firstCluster, novo, 0) < 0) {
+            if (insere_entrada(record.firstCluster, novo, 0) < 0) {
                 return -1;
 
             }
 
-            if (insere_diretorio(record.firstCluster, novo, 1) < 0) {
+            if (insere_entrada(record.firstCluster, novo, 1) < 0) {
                 return -1;
             }
 
             diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
 
-            int posicao_dir = busca_posicao_dir(final, diretorio_pai.firstCluster);
+            int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
 
-            if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+            if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                 return -1;
             }
 

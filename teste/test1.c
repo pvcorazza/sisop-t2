@@ -104,6 +104,18 @@ int main () {
     getcwd2(nome, 200);
     printf("Diretório corrente é: %s\n", nome);
 
+    printf("\n======= CREATE2 =======\n\n");
+
+    create2("/dir1/sisop2017.txt");
+    create2("/dir1/sisop.txt");
+
+    printf("\n======= DELETE2 =======\n\n");
+
+    delete2("/dir1/sisop2017.txt");
+    inicializa();
+    imprime_conteudo_fat();
+    le_diretorio(5);
+
     return 0;
 
 
