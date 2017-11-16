@@ -52,7 +52,6 @@ void print_superbloco_info() {
     printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
     printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
     printf("Numero total de clusters: %d\n", NUM_CLUSTERS);
-    //printf("Numero de setores logicos ocupados pelo diretorio raiz: %d\n\n", (SUPERBLOCO.DataSectorStart - SUPERBLOCO.RootDirCluster));
     printf("Numero de setores lógicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
 
 }
@@ -132,7 +131,107 @@ void le_diretorio(int cluster)
     }
 }
 
-void divide_caminho(char *string, char *array[]) {
+int conta_entradas_diretorio(int cluster) {
+    if (first_time) {
+        inicializa();
+    }
+
+    struct t2fs_record record;
+
+    int i;
+    int entradas = 0;
+
+    for (i = 0; i < 4; i++) {
+
+        unsigned char buffer[SECTOR_SIZE];
+        read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
+
+        int j = 0;
+        for (j = 0; j < SECTOR_SIZE; j = j + 64) {
+            memcpy(&record, &buffer[j], 64);
+            if (record.TypeVal != 0) {
+                entradas++;
+            }
+        }
+    }
+    return entradas;
+}
+
+int insere_diretorio(int cluster, struct t2fs_record entrada, int posicao) {
+    if (first_time) {
+        inicializa();
+    }
+
+    int primeiro_setor_cluster = SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster;
+
+    int setor = primeiro_setor_cluster + (posicao / 4);
+
+    int pos_inserir = posicao % 4;
+
+    unsigned char buffer[SECTOR_SIZE];
+
+    if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+        printf("Não foi possível fazer a leitura da entrada. \n");
+        return -1;
+    }
+
+    memcpy(&buffer[pos_inserir * 64], &entrada, 64);
+
+
+    if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+        printf("Não foi possível fazer a escrita da entrada. \n");
+        return -1;
+    }
+}
+
+
+int busca_entrada_livre_dir(int cluster) {
+    struct t2fs_record raiz;
+
+    int i;
+    int entrada = 0;
+
+    for (i = 0; i < 4; i++) {
+
+        unsigned char buffer[SECTOR_SIZE];
+        read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
+
+        int j = 0;
+        for (j = 0; j < SECTOR_SIZE; j = j + 64) {
+            memcpy(&raiz, &buffer[j], 64);
+            if (raiz.TypeVal == 0) {
+                return entrada;
+            }
+            entrada++;
+        }
+    }
+    return -1;
+}
+
+int busca_posicao_dir(char *name, int cluster) {
+    struct t2fs_record raiz;
+
+    int i;
+    int entrada = 0;
+
+    for (i = 0; i < 4; i++) {
+        unsigned char buffer[SECTOR_SIZE];
+        read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
+
+        int j = 0;
+        for (j = 0; j < SECTOR_SIZE; j = j + 64) {
+            memcpy(&raiz, &buffer[j], 64);
+            if (strcmp(name, raiz.name) == 0) {
+                return entrada;
+            }
+            entrada++;
+        }
+    }
+    return -1;
+}
+
+
+void caminho_para_array(char *string, char *array[]) {
 
     if (first_time) {
         inicializa();
@@ -146,17 +245,35 @@ void divide_caminho(char *string, char *array[]) {
     }
 }
 
-struct t2fs_record compara_nomes(int cluster, char *filename) {
+int divide_caminho(char *pathname, char *inicio, char *final) {
+
+    char temp_inicio[strlen(pathname + 1)];
+    strcpy(temp_inicio, pathname);
+
+    char *temp_final = strrchr(temp_inicio, '/');
+    if (temp_final == NULL) {
+        printf("Não pode dividir caminho");
+        return -1;
+    }
+
+    strcpy(final, temp_final + 1);
+    temp_inicio[temp_final - temp_inicio] = '\0';
+    strcpy(inicio, temp_inicio);
+
+    return 0;
+}
+
+struct t2fs_record compara_nomes(int cluster, char *pathname) {
 
     if (first_time) {
         inicializa();
     }
-    char string[MAX_FILE_NAME_SIZE];
-    strcpy(string, filename);
+    char string[strlen(pathname)];
+    strcpy(string, pathname);
 
     char *array[NUM_CLUSTERS]; //C-1 clusters possíveis para o diretório
 
-    divide_caminho(string, array);
+    caminho_para_array(string, array);
 
     int i = 0;
 
@@ -173,7 +290,6 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
     struct t2fs_record record = vazio;
     struct t2fs_record record_retorno = vazio;
 
-
     while (array[k] != NULL) {
         for (i = 0; i < 4; i++) {
 
@@ -184,7 +300,6 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
             for (j = 0; j < SECTOR_SIZE; j = j + 64) {
                 memcpy(&record, &buffer[j], 64);
                 if (!strcmp(record.name, array[k])) {
-                    puts(record.name);
                     encontrou = 1;
                     temp_cluster = record.firstCluster;
                     record_retorno = record;
@@ -197,13 +312,11 @@ struct t2fs_record compara_nomes(int cluster, char *filename) {
         encontrou = 0;
         k++;
     }
-
     return record_retorno;
 
 }
 
-
-DIR2 encontra_posicao() {
+DIR2 busca_pos_array_dir() {
     if (first_time) {
         inicializa();
     }
@@ -215,6 +328,54 @@ DIR2 encontra_posicao() {
         i++;
     }
     return -1;
+}
+
+int busca_pos_livre_FAT() {
+
+    DWORD buffer[64];
+    int i = SUPERBLOCO.pFATSectorStart, j = 0, k = 0;
+
+    while (i <= TOTAL_SETORES_FAT + 1) {
+        if (read_sector((unsigned int) i, (unsigned char *) &buffer) != 0) {
+            printf("Não foi possível fazer a leitura da FAT. \n");
+            return -1;
+        } else {
+            j = 0;
+            while (j < 64) {
+                if (buffer[j] == 0) {
+                    return k;
+                }
+                k++;
+                j++;
+            }
+        }
+        i++;
+    }
+
+    return -1;
+
+}
+
+int insere_entrada_FAT(int posicao, DWORD entrada) {
+
+    int setor = posicao / SECTOR_SIZE + SUPERBLOCO.pFATSectorStart;
+
+    DWORD buffer[64];
+
+    if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+        printf("Não foi possível fazer a leitura da FAT. \n");
+        return -1;
+    }
+
+    buffer[posicao] = entrada;
+
+    if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+        printf("Não foi possível fazer a escrita da FAT. \n");
+        return -1;
+    }
+
+    return 0;
+
 }
 
 /* Informa a identificação dos desenvolvedores do t2fs. */
@@ -241,6 +402,8 @@ FILE2 create2(char *filename) {
     if(first_time) {
         inicializa();
     }
+
+
     return -1;
 
 }
@@ -273,21 +436,134 @@ int seek2(FILE2 handle, unsigned int offset) {
     return -1;
 }
 
+
 int mkdir2(char *pathname) {
 
     if (first_time) {
         inicializa();
     }
 
+    char inicio[strlen(pathname)];
+    char final[strlen(pathname)];
 
+    if (divide_caminho(pathname, inicio, final) < 0) {
+        return -1;
+    }
+
+    struct t2fs_record diretorio_pai;
+    struct t2fs_record record;
+
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+
+    if (record.TypeVal != NULL) {
+        printf("ERRO: O diretorio ja existe.\n");
+        return -1;
+    }
+
+    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+
+    if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) { //Pode criar diretório
+
+        int posicao_FAT = busca_pos_livre_FAT();
+
+        if (posicao_FAT >= 0) {
+
+            int posicao_dir = busca_entrada_livre_dir(diretorio_pai.firstCluster);
+
+            if (posicao_dir >= 0) {
+
+                if (insere_entrada_FAT(posicao_FAT, 0xFFFFFFFF) < 0) {
+                    return -1;
+                }
+
+                struct t2fs_record novo;
+
+                strcpy(novo.name, final);
+                novo.firstCluster = (DWORD) posicao_FAT;
+                novo.TypeVal = TYPEVAL_DIRETORIO;
+                novo.bytesFileSize = 1024;
+
+                if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+                    return -1;
+                }
+
+                strcpy(novo.name, ".");
+                if (insere_diretorio(novo.firstCluster, novo, 0) < 0) {
+                    return -1;
+                }
+
+                strcpy(diretorio_pai.name, "..");
+                if (insere_diretorio(novo.firstCluster, diretorio_pai, 1) < 0) {
+                    return -1;
+                }
+
+                return 0;
+            }
+
+        }
+    }
     return -1;
-
-
 }
 
 int rmdir2(char *pathname) {
-    return -1;
+
+    if (first_time) {
+        inicializa();
+    }
+
+    char inicio[strlen(pathname)];
+    char final[strlen(pathname)];
+
+    if (divide_caminho(pathname, inicio, final) < 0) {
+        return -1;
+    }
+
+    if ((strcmp(final, ".") == 0) || (strcmp(final, ".") == 0)) {
+        return -1;
+    }
+
+    struct t2fs_record diretorio_pai;
+    struct t2fs_record record;
+
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+
+    if (record.TypeVal == TYPEVAL_DIRETORIO) {
+
+        int entradas = conta_entradas_diretorio(record.firstCluster);
+
+
+        if (entradas == 2) {
+
+            struct t2fs_record novo = {0};
+
+            if (insere_diretorio(record.firstCluster, novo, 0) < 0) {
+                return -1;
+
+            }
+
+            if (insere_diretorio(record.firstCluster, novo, 1) < 0) {
+                return -1;
+            }
+
+            diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+
+            int posicao_dir = busca_posicao_dir(final, diretorio_pai.firstCluster);
+
+            if (insere_diretorio(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
+                return -1;
+            }
+
+            if (insere_entrada_FAT(record.firstCluster, 0x00000000) < 0) {
+                return -1;
+            }
+
+            return 0;
+        }
+    }
+    return -2;
 }
+
+
 
 int chdir2(char *pathname) {
     return -1;
@@ -303,7 +579,7 @@ DIR2 opendir2(char *pathname) {
         inicializa();
     }
 
-    DIR2 handle = encontra_posicao();
+    DIR2 handle = busca_pos_array_dir();
     struct t2fs_record record;
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {

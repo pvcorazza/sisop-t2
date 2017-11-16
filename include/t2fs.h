@@ -354,12 +354,17 @@ struct dir_aberto {
 };
 
 //Busca por uma posição onde não tenha um diretório aberto
-DIR2 encontra_posicao();
+DIR2 busca_pos_array_dir();
 
 //Recebe uma string com o caminho absoluto e divide esse caminho inserindo no array informado por parâmetro
-void divide_caminho(char *string, char *array[]);
+void caminho_para_array(char *string, char *array[]);
 
-struct t2fs_record compara_nomes(int cluster, char *filename);
+//Recebe uma string com o caminho e divide esse caminho inserindo o nome do diretório ou arquivo em final, e o restante em inicio
+int divide_caminho(char *pathname, char *inicio, char *final);
+
+//
+
+struct t2fs_record compara_nomes(int cluster, char *pathname);
 
 
 
