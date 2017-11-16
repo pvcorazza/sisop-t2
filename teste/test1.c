@@ -118,8 +118,8 @@ int main () {
 
 
     char *buffer = malloc(sizeof(char) * 200);
-    open2("./file2.txt");
-    read2(0, buffer, 1094);
+    open2("./file1.txt");
+    read2(0, buffer, 30);
 
 
     return 0;

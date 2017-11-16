@@ -625,15 +625,17 @@ int read2(FILE2 handle, char *buffer, int size) {
                 int retorno = le_bytes_arquivo(arquivos_abertos[handle].arquivo.bytesFileSize,
                                                arquivos_abertos[handle].arquivo.firstCluster,
                                                arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
-                if (retorno > 0) {
-                    arquivos_abertos[handle].current_pointer +
+                if (retorno >= 0) {
+                    puts(buffer);
                     return arquivos_abertos[handle].arquivo.bytesFileSize;
                 }
             } else {
                 int retorno = le_bytes_arquivo(size, arquivos_abertos[handle].arquivo.firstCluster,
                                                arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
-                if (retorno > 0) {
+                if (retorno >= 0) {
+                    puts(buffer);
                     return size;
+
 
                 }
             }
