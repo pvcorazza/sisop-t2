@@ -389,8 +389,68 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
     }
 
     return 0;
+}
+
+DWORD encontra_proximo_setor(int cluster) {
+    int setor = (cluster / SECTOR_SIZE) + SUPERBLOCO.pFATSectorStart;
+
+    DWORD buffer[64];
+
+    if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
+        printf("Não foi possível fazer a leitura da FAT. \n");
+        return 0xFFFFFFFF;
+    }
+
+    if (buffer[cluster] >= 0x00000002 && buffer[cluster] <= 0xFFFFFFFD) {
+        return buffer[cluster];
+    }
+
+    return 0xFFFFFFFF;
 
 }
+
+int le_bytes_arquivo(int size, int cluster, int file_size, char *buffer) {
+
+    int primeiro_setor = cluster * 4 + SUPERBLOCO.DataSectorStart;
+    char aux[SECTOR_SIZE];
+
+    printf("PRIMEIRO SETOR %d", primeiro_setor);
+    printf("SIZE TEMP %d", size);
+
+    int tamanho = file_size + (SECTOR_SIZE * 4) + 1;
+
+    char temp2[tamanho];
+
+    temp2[0] = '\0';
+
+    int i = 0;
+
+    for (i = 0; i < 4; i++) {
+        if (read_sector((unsigned int) primeiro_setor + i, (unsigned char *) &aux) == 0) {
+            strcat(temp2, aux);
+        } else {
+            return -1;
+        }
+    }
+
+    DWORD next = encontra_proximo_setor(cluster);
+
+    while (next != 0xFFFFFFFF) {
+        for (i = 0; i < 4; i++) {
+            if (read_sector((unsigned int) primeiro_setor + i, (unsigned char *) &aux) == 0) {
+                strcat(temp2, aux);
+            } else {
+                return -1;
+            }
+        }
+        next = encontra_proximo_setor(next);
+    }
+
+    memcpy(buffer, temp2, size);
+
+    return 0;
+}
+
 
 /* Informa a identificação dos desenvolvedores do t2fs. */
 int identify2(char *name, int size) {
@@ -554,8 +614,34 @@ int close2(FILE2 handle) {
 }
 
 int read2(FILE2 handle, char *buffer, int size) {
+
+    if (first_time) {
+        inicializa();
+    }
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        if (arquivos_abertos[handle].aberto == 1) {
+            if (size > arquivos_abertos[handle].arquivo.bytesFileSize) {
+                int retorno = le_bytes_arquivo(arquivos_abertos[handle].arquivo.bytesFileSize,
+                                               arquivos_abertos[handle].arquivo.firstCluster,
+                                               arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
+                if (retorno > 0) {
+                    arquivos_abertos[handle].current_pointer +
+                    return arquivos_abertos[handle].arquivo.bytesFileSize;
+                }
+            } else {
+                int retorno = le_bytes_arquivo(size, arquivos_abertos[handle].arquivo.firstCluster,
+                                               arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
+                if (retorno > 0) {
+                    return size;
+
+                }
+            }
+        }
+    }
     return -1;
 }
+
 
 int write2(FILE2 handle, char *buffer, int size) {
     return -1;

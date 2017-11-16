@@ -25,99 +25,104 @@ int main () {
 
     le_diretorio(5);
 
-    printf("\n======= OPENDIR2 =======\n\n");
+//    printf("\n======= OPENDIR2 =======\n\n");
+//
+//    //Dir1
+//    int retorno = opendir2("/dir1");
+//    printf("Handle de retorno: %d \n", retorno);
+//
+//    //Raiz
+//    retorno = opendir2("/.");
+//    printf("Handle de retorno: %d \n", retorno);
+//
+//    printf("\n======= READDIR2 =======\n\n");
+//
+//    DIRENT2 *dentry = malloc(sizeof(DIRENT2));
+//
+//    int retorno_readdir = readdir2(0, dentry);
+//
+//    printf("Nome em dentry: %s\n", dentry->name);
+//    printf("Retorno da readdir2: %d\n", retorno_readdir);
+//
+//    retorno_readdir = readdir2(0, dentry);
+//
+//    printf("Nome em dentry: %s\n", dentry->name);
+//    printf("Retorno da readdir2: %d\n", retorno_readdir);
+//
+//    retorno_readdir = readdir2(0, dentry);
+//
+//    printf("Nome em dentry: %s\n", dentry->name);
+//    printf("Retorno da readdir2: %d\n", retorno_readdir);
+//
+//    retorno_readdir = readdir2(0, dentry);
+//
+//    printf("Nome em dentry: %s\n", dentry->name);
+//    printf("Retorno da readdir2: %d\n", retorno_readdir);
+//
+//    retorno_readdir = readdir2(0, dentry);
+//    printf("Nome em dentry: %s\n", dentry->name);
+//    printf("Retorno da readdir2: %d\n", retorno_readdir);
+//
+//    free(dentry);
+//
+//
+//    printf("\n======= CLOSEDIR2 =======\n\n");
+//
+//    //Fecha diretório /dir1
+//    int close = closedir2(0);
+//    printf("Retorno do closedir: %d ", close);
+//
+//    printf("\n======= MKDIR2 =======\n\n");
+//
+//    mkdir2("/dir1/teste1");
+//
+//    mkdir2("/dir1/teste2");
+//
+//    mkdir2("/dir1/teste3");
+//
+//
+//    printf("\n======= RMDIR2 =======\n\n");
+//
+//    rmdir2("/dir1/teste2");
+//    inicializa();
+//    imprime_conteudo_fat();
+//    le_diretorio(5);
+//    le_diretorio(11);
+//
+//    printf("\n======= CHDIR2 =======\n\n");
+//
+//
+//    char nome[200];
+//    char pathname[] = "/dir1";
+//    getcwd2(nome, 200);
+//    printf("Diretório corrente antes do CHDIR2 é: %s\n", nome);
+//
+//    chdir2(pathname);
+//
+//    printf("\n======= GETCWD2 =======\n\n");
+//
+//    getcwd2(nome, 200);
+//    printf("Diretório corrente é: %s\n", nome);
+//
+//    printf("\n======= CREATE2 =======\n\n");
+//
+//    create2("/dir1/sisop2017.txt");
+//    create2("/dir1/sisop.txt");
+//
+//    printf("\n======= DELETE2 =======\n\n");
+//
+//    delete2("/dir1/sisop2017.txt");
+//    inicializa();
+//    imprime_conteudo_fat();
+//    le_diretorio(5);
 
-    //Dir1
-    int retorno = opendir2("/dir1");
-    printf("Handle de retorno: %d \n", retorno);
 
-    //Raiz
-    retorno = opendir2("/.");
-    printf("Handle de retorno: %d \n", retorno);
+    char *buffer = malloc(sizeof(char) * 200);
+    open2("./file2.txt");
+    read2(0, buffer, 1094);
 
-    printf("\n======= READDIR2 =======\n\n");
-
-    DIRENT2 *dentry = malloc(sizeof(DIRENT2));
-
-    int retorno_readdir = readdir2(0, dentry);
-
-    printf("Nome em dentry: %s\n", dentry->name);
-    printf("Retorno da readdir2: %d\n", retorno_readdir);
-
-    retorno_readdir = readdir2(0, dentry);
-
-    printf("Nome em dentry: %s\n", dentry->name);
-    printf("Retorno da readdir2: %d\n", retorno_readdir);
-
-    retorno_readdir = readdir2(0, dentry);
-
-    printf("Nome em dentry: %s\n", dentry->name);
-    printf("Retorno da readdir2: %d\n", retorno_readdir);
-
-    retorno_readdir = readdir2(0, dentry);
-
-    printf("Nome em dentry: %s\n", dentry->name);
-    printf("Retorno da readdir2: %d\n", retorno_readdir);
-
-    retorno_readdir = readdir2(0, dentry);
-    printf("Nome em dentry: %s\n", dentry->name);
-    printf("Retorno da readdir2: %d\n", retorno_readdir);
-
-    free(dentry);
-
-
-    printf("\n======= CLOSEDIR2 =======\n\n");
-
-    //Fecha diretório /dir1
-    int close = closedir2(0);
-    printf("Retorno do closedir: %d ", close);
-
-    printf("\n======= MKDIR2 =======\n\n");
-
-    mkdir2("/dir1/teste1");
-
-    mkdir2("/dir1/teste2");
-
-    mkdir2("/dir1/teste3");
-
-
-    printf("\n======= RMDIR2 =======\n\n");
-
-    rmdir2("/dir1/teste2");
-    inicializa();
-    imprime_conteudo_fat();
-    le_diretorio(5);
-    le_diretorio(11);
-
-    printf("\n======= CHDIR2 =======\n\n");
-
-
-    char nome[200];
-    char pathname[] = "/dir1";
-    getcwd2(nome, 200);
-    printf("Diretório corrente antes do CHDIR2 é: %s\n", nome);
-
-    chdir2(pathname);
-
-    printf("\n======= GETCWD2 =======\n\n");
-
-    getcwd2(nome, 200);
-    printf("Diretório corrente é: %s\n", nome);
-
-    printf("\n======= CREATE2 =======\n\n");
-
-    create2("/dir1/sisop2017.txt");
-    create2("/dir1/sisop.txt");
-
-    printf("\n======= DELETE2 =======\n\n");
-
-    delete2("/dir1/sisop2017.txt");
-    inicializa();
-    imprime_conteudo_fat();
-    le_diretorio(5);
 
     return 0;
-
 
 
 }

@@ -139,7 +139,7 @@ Entra:	handle -> identificador do arquivo a ser lido
 	size -> número de bytes a serem lidos
 
 Saída:	Se a operação foi realizada com sucesso, a função retorna o número de bytes lidos.
-	Se o valor retornado for menor do que "size", então o contador de posição atingiu o final do arquivo.
+Se o valor retornado for menor do que "size", então o contador de posição atingiu o final do arquivo.
 	Em caso de erro, será retornado um valor negativo.
 -----------------------------------------------------------------------------*/
 int read2 (FILE2 handle, char *buffer, int size);
