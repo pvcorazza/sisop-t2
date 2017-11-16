@@ -10,6 +10,7 @@
 #include <string.h>
 #include "../include/t2fs.h"
 
+
 void cmdMan(void);
 
 void cmdWho(void);
@@ -26,9 +27,6 @@ void cmdCreate(void);
 void cmdDelete(void);
 void cmdSeek(void);
 void cmdTrunc(void);
-
-void cmdChDir(void);
-void cmdGetCwd(void);
 
 void cmdCp(void);
 void cmdFscp(void);
@@ -58,74 +56,100 @@ static void dump(char *buffer, int size) {
     }
 }
 
+#define    CMD_EXIT    0
+#define    CMD_MAN        1
+#define    CMD_WHO        2
+#define    CMD_DIR        3
+#define    CMD_MKDIR    4
+#define    CMD_RMDIR    5
+#define    CMD_OPEN    6
+#define    CMD_READ    7
+#define    CMD_CLOSE    8
+#define    CMD_WRITE    9
+#define    CMD_CREATE    10
+#define    CMD_DELETE    11
+#define    CMD_SEEK    12
+#define    CMD_TRUNCATE    13
+#define    CMD_COPY    14
+#define    CMD_FS_COPY    15
 
-char	helpExit[] = "finish this shell";
-char	helpMan[] = "command help";
-char	helpWho[] = "shows T2FS authors";
-char	helpLs[] = "list files in dir [1]";
-char	helpMkdir[] = "create dir [1] in T2FS";
-char	helpRmdir[] = "remove dir [1] from T2FS";
-char	helpChDir[] = "change current working dir to [1]";
-char	helpGetCwd[] = "get current working dir";
-char	helpOpen[] = "open file [1] from T2FS";
-char	helpRead[] = "read [2] bytes from file-handle [1]";
-char	helpClose[] = "close file-handle [1]";
-char	helpWrite[] = "write [2] bytes in file-handle [1]";
-char	helpCreate[] = "create file [1] in T2FS";
-char	helpDelete[] = "delete file [1] from T2FS";
-char	helpSeek[] = "set CP of file-handle [1] on position [2]";
-char	helpTrunc[] = "truncate file-handle [1] to [2] bytes";
-char	helpCp[] = "copy file [1] to [2]";
-char	helpFscp[] = "fscp -t [1] [2] -> copy HostFS[1] to T2FS[2]\nfscp -f [1] [2] -> copy T2FS[1]   to HostFS[2]";
-
-struct	{
-	char	name[20];
-	void	(*f)(void);
-	char	*help;
-
-} cmdList[] = {
-
-	{ "exit",	cmdExit,	helpExit 	},
-	{ "x",		cmdExit,	helpExit 	},
-	{ "man",	cmdMan,		helpMan 	},
-	{ "who",	cmdWho,		helpWho 	},
-	{ "id",		cmdWho,		helpWho 	},
-	{ "dir",	cmdLs,		helpLs 		},
-	{ "ls",		cmdLs,		helpLs 		},
-	{ "mkdir",	cmdMkdir,	helpMkdir 	},
-	{ "md",		cmdMkdir,	helpMkdir 	},
-	{ "rmdir",	cmdRmdir,	helpRmdir 	},
-	{ "rm",		cmdRmdir,	helpRmdir 	},
-	{ "chdir",	cmdChDir,	helpChDir 	},
-	{ "chdir",	cmdChDir,	helpChDir 	},
-	{ "cd",		cmdChDir,	helpChDir 	},
-	{ "getcwd",	cmdGetCwd,	helpGetCwd 	},
-	{ "cwd",	cmdGetCwd,	helpGetCwd 	},
-
-	{ "open",	cmdOpen,	helpOpen 	},
-	{ "read",	cmdRead,	helpRead	},
-	{ "rd",		cmdRead,	helpRead	},
-	{ "close",	cmdClose,	helpClose	},
-	{ "cl",		cmdClose,	helpClose	},
-	{ "write",	cmdWrite,	helpWrite	},
-	{ "wr",		cmdWrite,	helpWrite	},
-	{ "create",	cmdCreate,	helpCreate	},
-	{ "cr",		cmdCreate,	helpCreate	},
-	{ "delete",	cmdDelete,	helpDelete	},
-	{ "del",	cmdDelete,	helpDelete	},
-	{ "seek",	cmdSeek,	helpSeek	},
-	{ "sk",		cmdSeek,	helpSeek	},
-	{ "truncate",	cmdTrunc,	helpTrunc	},
-	{ "trunc",	cmdTrunc,	helpTrunc	},
-	{ "tk",		cmdTrunc,	helpTrunc	},
-
-	{ "cp",		cmdCp,		helpCp		},
-	{ "fscp",	cmdFscp,	helpFscp	},
-	{ "fim",	NULL,		NULL		}
-
-
+char helpString[][120] = {
+        "            -> finish this shell",
+        "[comando]   -> command help",
+        "            -> shows T2FS authors",
+        "[pahname]   -> list files in [pathname]",
+        "[dirname]   -> create [dirname] in T2FS",
+        "[dirname]   -> deletes [dirname] from T2FS",
+        "[file]      -> open [file] from T2FS",
+        "[hdl] [siz] -> read [siz] bytes from file [hdl]",
+        "[hdl        -> close [hdl]",
+        "[hdl] [str] -> write [str] bytes to file [hdl]",
+        "[file]      -> create new [file] in T2FS",
+        "[file]      -> deletes [file] from T2FS",
+        "[hdl] [pos] -> set CP of [hdl] file on [pos]",
+        "[hdl] [siz] -> truncate file [hdl] to [siz] bytes",
+        "[src] [dst] -> copy files: [src] -> [dst]",
+        "\n    fscp -t [src] [dst]     -> copy HostFS to T2FS"
+                "\n    fscp -f [src] [dst]     -> copy T2FS   to HostFS"
 };
 
+
+struct {
+    char name[20];
+
+    void (*f)(void);
+
+    int helpId;
+} cmdList[] = {
+        {"exit",     cmdExit,   CMD_EXIT},
+        {"x",        cmdExit,   CMD_EXIT},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"man",      cmdMan,    CMD_MAN},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"who",      cmdWho,    CMD_WHO},
+        {"id",       cmdWho,    CMD_WHO},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"dir",      cmdLs,     CMD_DIR},
+        {"ls",       cmdLs,     CMD_DIR},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"mkdir",    cmdMkdir,  CMD_MKDIR},
+        {"md",       cmdMkdir,  CMD_MKDIR},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"rmdir",    cmdRmdir,  CMD_RMDIR},
+        {"rm",       cmdRmdir,  CMD_RMDIR},
+        {"nl",       cmdExit,   CMD_EXIT},
+
+        {"open",     cmdOpen,   CMD_OPEN},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"read",     cmdRead,   CMD_READ},
+        {"rd",       cmdRead,   CMD_READ},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"close",    cmdClose,  CMD_CLOSE},
+        {"cl",       cmdClose,  CMD_CLOSE},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"write",    cmdWrite,  CMD_WRITE},
+        {"wr",       cmdWrite,  CMD_WRITE},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"create",   cmdCreate, CMD_CREATE},
+        {"cr",       cmdCreate, CMD_CREATE},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"delete",   cmdDelete, CMD_DELETE},
+        {"del",      cmdDelete, CMD_DELETE},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"seek",     cmdSeek,   CMD_SEEK},
+        {"sk",       cmdSeek,   CMD_SEEK},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"truncate", cmdTrunc,  CMD_TRUNCATE},
+        {"trunc",    cmdTrunc,  CMD_TRUNCATE},
+        {"tk",       cmdTrunc,  CMD_TRUNCATE},
+        {"nl",       cmdExit,   CMD_EXIT},
+
+        {"cp",       cmdCp,     CMD_COPY},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"fscp",     cmdFscp,   CMD_FS_COPY},
+        {"nl",       cmdExit,   CMD_EXIT},
+        {"fim", NULL, -1}
+};
 
 
 
@@ -146,20 +170,20 @@ int main()
         printf ("T2FS> ");
         gets(cmd);
         if( (token = strtok(cmd," \t")) != NULL ) {
-		flagAchou = 0;
-		for (i=0; cmdList[i].f!=NULL; i++) {
-			if (strcmp(cmdList[i].name, token)==0) {
-				flagAchou = 1;
-				cmdList[i].f();
-				if (cmdList[i].f == cmdExit) {
-					flagEncerrar = 1;
-				}
-				break;
-			}
-		}
-		if (!flagAchou) printf ("???\n");
+            flagAchou = 0;
+            for (i = 0; strcmp(cmdList[i].name, "fim") != 0; i++) {
+                if (strcmp(cmdList[i].name, token) == 0) {
+                    flagAchou = 1;
+                    cmdList[i].f();
+                    if (cmdList[i].helpId == CMD_EXIT) {
+                        flagEncerrar = 1;
+                        break;
+                    }
+                }
+            }
+            if (!flagAchou) printf("???\n");
         }
-	if (flagEncerrar) break;
+        if (flagEncerrar) break;
     }
     return 0;
 }
@@ -175,28 +199,34 @@ void cmdExit(void) {
 Informa os comandos aceitos pelo programa de teste
 */
 void cmdMan(void) {
-	int i;
-	char *token = strtok(NULL," \t");
+    int i;
+    char *token = strtok(NULL, " \t");
+    int flagVirgula;
 
-	printf ("Testing program for T2FS - v 2017.2.0\n");
+    printf("Testing program for T2FS - v 2017.1.0\n");
 
-	if (token==NULL) {
-		for (i=0; strcmp(cmdList[i].name,"fim")!=0; i++) {
-			if (cmdList[i].help == cmdList[i+1].help) {
-				printf ("%s, ", cmdList[i].name);
-				continue;
-			}
-			printf ("%s => %s\n", cmdList[i].name, cmdList[i].help);
-		}
-		printf ("\n");
-		return;
-	}
+    if (token == NULL) {
+        flagVirgula = 0;
+        for (i = 0; strcmp(cmdList[i].name, "fim") != 0; i++) {
+            if (strcmp(cmdList[i].name, "nl") == 0) {
+                printf("\n");
+                flagVirgula = 0;
+                continue;
+            }
+            if (flagVirgula)
+                printf(", ");
+            printf("%s", cmdList[i].name);
+            flagVirgula = 1;
+        }
+        printf("\n");
+        return;
+    }
 
-	for (i=0; strcmp(cmdList[i].name,"fim")!=0; i++) {
-		if (strcmp(cmdList[i].name,token)==0) {
-			printf ("%s: %s\n", cmdList[i].name, cmdList[i].help);
-		}
-	}
+    for (i = 0; strcmp(cmdList[i].name, "fim") != 0; i++) {
+        if (strcmp(cmdList[i].name, token) == 0) {
+            printf("%-10s %s\n", cmdList[i].name, helpString[cmdList[i].helpId]);
+        }
+    }
 
 
 }
@@ -576,17 +606,17 @@ void cmdLs(void) {
     // Coloca diretorio na tela
     DIRENT2 dentry;
     while(1) {
-	    int errCode = readdir2(d, &dentry);
+        int errCode = readdir2(d, &dentry);
 
-	    if (errCode==-END_OF_DIR)
-		    break;
+        if (errCode == -END_OF_DIR)
+            break;
 
-	    if (errCode!=0) {
-		    printf ("readdir2 error code: %d\n", errCode);
-		    break;
-	    }
+        if (errCode != 0) {
+            printf("readdir2 error code: %d\n", errCode);
+            break;
+        }
 
-	    printf ("%c %8u %s\n", (dentry.fileType==0x02?'d':'-'), dentry.fileSize, dentry.name);
+        printf("%c %8u %s\n", (dentry.fileType == 0x02 ? 'd' : '-'), dentry.fileSize, dentry.name);
     }
 
     closedir2(d);
@@ -678,15 +708,3 @@ void cmdSeek(void) {
     printf ("Seek completado para a posicao %d\n", size);
 
 }
-
-void cmdChDir(void) {
-
-}
-
-void cmdGetCwd(void) {
-
-}
-
-
-
-

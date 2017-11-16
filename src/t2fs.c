@@ -16,6 +16,7 @@
 struct dir_aberto diretorios_abertos[MAX_ABERTOS];
 /* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
 int first_time = 1;
+char current_path[1024] = "/";
 
 int inicializa() {
 
@@ -281,14 +282,9 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
     int encontrou = 0;
     int temp_cluster = cluster;
 
-    struct t2fs_record vazio;
-    strcpy(vazio.name, "");
-    vazio.firstCluster = (DWORD) NULL;
-    vazio.TypeVal = (int) NULL;
-    vazio.bytesFileSize = (DWORD) NULL;
-
-    struct t2fs_record record = vazio;
-    struct t2fs_record record_retorno = vazio;
+    struct t2fs_record vazio = {0};
+    struct t2fs_record record = {0};
+    struct t2fs_record record_retorno = {0};
 
     while (array[k] != NULL) {
         for (i = 0; i < 4; i++) {
@@ -566,11 +562,32 @@ int rmdir2(char *pathname) {
 
 
 int chdir2(char *pathname) {
+
+    struct t2fs_record current;
+
+    current = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+
+    if (current.TypeVal == TYPEVAL_DIRETORIO) {
+        strcpy(current_path, pathname);
+        return 0;
+    }
+
     return -1;
 }
 
 int getcwd2(char *pathname, int size) {
-    return -1;
+
+    if (first_time) {
+        inicializa();
+    }
+
+    if (size < strlen(current_path)) {
+        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+    } else {
+        strcpy(pathname, current_path);
+        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+    }
+
 }
 
 DIR2 opendir2(char *pathname) {

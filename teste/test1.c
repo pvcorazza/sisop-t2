@@ -89,6 +89,21 @@ int main () {
     le_diretorio(5);
     le_diretorio(11);
 
-    return 0;
+    printf("\n======= CHDIR2 =======\n\n");
+
+
+    char nome[200];
+    char pathname[] = "/dir1";
+    getcwd2(nome, 200);
+    printf("Diretório corrente antes do CHDIR2 é: %s\n", nome);
+
+    chdir2(pathname);
+
+    printf("\n======= GETCWD2 =======\n\n");
+    
+    getcwd2(nome, 200);
+    printf("Diretório corrente é: %s\n", nome);
+
+
 
 }
