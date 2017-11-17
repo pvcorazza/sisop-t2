@@ -664,6 +664,26 @@ int truncate2(FILE2 handle) {
 }
 
 int seek2(FILE2 handle, unsigned int offset) {
+
+    if (first_time) {
+        inicializa();
+    }
+
+    if (handle >= 0 && handle <= MAX_ABERTOS) {
+        if (arquivos_abertos[handle].aberto == 1) {
+            if (offset < arquivos_abertos[handle].arquivo.bytesFileSize) {
+//                if (offset == -1) {
+//                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize+1;
+//                    return 0;
+//                }
+//                else {
+                arquivos_abertos[handle].current_pointer = offset;
+                return 0;
+//                }
+
+            }
+        }
+    }
     return -1;
 }
 
