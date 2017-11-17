@@ -119,9 +119,10 @@ int main () {
 
     char *buffer = malloc(sizeof(char) * 200);
     open2("./file2.txt");
-    int retorno = read2(0, buffer, 2000);
+    int retorno = read2(0, buffer, 1050);
+    int retorno2 = read2(0, buffer, 44);
 
-    printf("Retorno: %d", retorno);
+    printf("Retorno: %d\nRetorno2: %d", retorno, retorno2);
 
     return 0;
 

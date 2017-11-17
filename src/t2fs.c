@@ -409,28 +409,48 @@ DWORD encontra_proximo_setor(int cluster) {
 
 }
 
-int le_bytes_arquivo(int size, int cluster, int file_size, char *buffer) {
+int le_bytes_arquivo(int size, struct arq_aberto arq, char *buffer) {
 
-    int primeiro_setor = cluster * 4 + SUPERBLOCO.DataSectorStart;
+    if (size > arq.arquivo.bytesFileSize - arq.current_pointer) {
+
+        size = arq.arquivo.bytesFileSize - arq.current_pointer;
+        printf("SIZE: %d\n\n", size);
+    }
+
+    int primeiro_setor = arq.arquivo.firstCluster * 4 + SUPERBLOCO.DataSectorStart;
     char aux[SECTOR_SIZE];
 
-    int tamanho = file_size + (SECTOR_SIZE * 4) + 1;
-
+    int tamanho = arq.arquivo.bytesFileSize + (SECTOR_SIZE * 4) + 1;
     char temp2[tamanho];
 
     temp2[0] = '\0';
 
+    int offset_cluster = (arq.current_pointer / SECTOR_SIZE) / 4;
+    int offset_cluster_original = offset_cluster;
     int i = 0;
 
-    for (i = 0; i < 4; i++) {
-        if (read_sector((unsigned int) primeiro_setor + i, (unsigned char *) &aux) == 0) {
+    DWORD next = arq.arquivo.firstCluster;
+
+    while (offset_cluster > 0) {
+        next = encontra_proximo_setor(next);
+        offset_cluster--;
+    }
+
+    int offset_setor = (arq.current_pointer / SECTOR_SIZE) - 4 * offset_cluster_original;
+    int diferenca = arq.current_pointer - (arq.current_pointer / 256) * SECTOR_SIZE;
+
+    for (i = 0; i < 4 - offset_setor; i++) {
+        if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i + offset_setor,
+                        (unsigned char *) &aux) == 0) {
             strcat(temp2, aux);
         } else {
             return -1;
         }
     }
 
-    DWORD next = encontra_proximo_setor(cluster);
+
+    next = encontra_proximo_setor(next);
+
 
     while (next != 0xFFFFFFFF) {
         for (i = 0; i < 4; i++) {
@@ -443,9 +463,10 @@ int le_bytes_arquivo(int size, int cluster, int file_size, char *buffer) {
         next = encontra_proximo_setor(next);
     }
 
-    memcpy(buffer, temp2, size);
 
-    return 0;
+    memcpy(buffer, &temp2[diferenca], size);
+
+    return size;
 }
 
 
@@ -618,27 +639,17 @@ int read2(FILE2 handle, char *buffer, int size) {
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
-            if (size > arquivos_abertos[handle].arquivo.bytesFileSize) {
-                int retorno = le_bytes_arquivo(arquivos_abertos[handle].arquivo.bytesFileSize,
-                                               arquivos_abertos[handle].arquivo.firstCluster,
-                                               arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
+            if (arquivos_abertos[handle].current_pointer <= arquivos_abertos[handle].arquivo.bytesFileSize) {
+                int retorno = le_bytes_arquivo(size, arquivos_abertos[handle], buffer);
                 if (retorno >= 0) {
-                    // puts(buffer);
-                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
-                    return arquivos_abertos[handle].arquivo.bytesFileSize;
+                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].current_pointer + retorno + 1;
+                    return retorno;
                 }
-            } else {
-                int retorno = le_bytes_arquivo(size, arquivos_abertos[handle].arquivo.firstCluster,
-                                               arquivos_abertos[handle].arquivo.bytesFileSize, buffer);
-                if (retorno >= 0) {
-                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].current_pointer + size;
-                    // puts(buffer);
-                    return size;
-
-
-                }
+                return -2;
             }
+            return -3;
         }
+        return -1;
     }
     return -1;
 }
