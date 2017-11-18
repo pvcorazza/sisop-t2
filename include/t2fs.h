@@ -358,6 +358,7 @@ struct arq_aberto {
     struct t2fs_record arquivo;
     int current_pointer;
     int aberto;
+    struct t2fs_record diretorio_pai;
 };
 
 
@@ -370,9 +371,11 @@ void caminho_para_array(char *string, char *array[]);
 //Recebe uma string com o caminho e divide esse caminho inserindo o nome do diretório ou arquivo em final, e o restante em inicio
 int divide_caminho(char *pathname, char *inicio, char *final);
 
-//
-
 struct t2fs_record compara_nomes(int cluster, char *pathname);
+
+
+int verifica_absoluto(char *path);
+
 
 
 

@@ -6,24 +6,24 @@
 
 int main () {
 
-    printf("==== TESTE DO IDENTIFY2 ====\n\n");
-    char nomes[200];
-    identify2(nomes,200);
-    puts(nomes);
-
-    printf("==== DADOS DO SUPERBLOCO ====\n\n");
-    print_superbloco_info();
-
-    printf("\n======= FAT =======\n\n");
-    imprime_conteudo_fat();
-
-    printf("\n======= DIRETÓRIO RAIZ =======\n\n");
-
-    le_diretorio(SUPERBLOCO.RootDirCluster);
-
-    printf("\n======= DIR1 =======\n\n");
-
-    le_diretorio(5);
+//    printf("==== TESTE DO IDENTIFY2 ====\n\n");
+//    char nomes[200];
+//    identify2(nomes,200);
+//    puts(nomes);
+//
+//    printf("==== DADOS DO SUPERBLOCO ====\n\n");
+//    print_superbloco_info();
+//
+//    printf("\n======= FAT =======\n\n");
+//    imprime_conteudo_fat();
+//
+//    printf("\n======= DIRETÓRIO RAIZ =======\n\n");
+//
+//    le_diretorio(SUPERBLOCO.RootDirCluster);
+//
+//    printf("\n======= DIR1 =======\n\n");
+//
+//    le_diretorio(5);
 
 //    printf("\n======= OPENDIR2 =======\n\n");
 //
@@ -112,17 +112,19 @@ int main () {
 //    printf("\n======= DELETE2 =======\n\n");
 //
 //    delete2("/dir1/sisop2017.txt");
-//    inicializa();
-//    imprime_conteudo_fat();
-//    le_diretorio(5);
+    inicializa();
+    imprime_conteudo_fat();
+    le_diretorio(SUPERBLOCO.RootDirCluster);
 
 
-    char *buffer = malloc(sizeof(char) * 200);
-    open2("./file2.txt");
-    int retorno = read2(0, buffer, 1050);
-    int retorno2 = read2(0, buffer, 44);
+    printf("RETORNO DO OPEN %d", open2("/file2.txt"));
+    seek2(0, 12);
+    truncate2(0);
 
-    printf("Retorno: %d\nRetorno2: %d", retorno, retorno2);
+    inicializa();
+    imprime_conteudo_fat();
+    le_diretorio(SUPERBLOCO.RootDirCluster);
+
 
     return 0;
 
