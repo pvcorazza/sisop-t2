@@ -396,7 +396,7 @@ DWORD encontra_proximo_setor(int cluster) {
 
     DWORD buffer[64];
 
-    printf("O setor é %d", setor);
+    printf("O setor é %d\n", setor);
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
         printf("Não foi possível fazer a leitura da FAT 4. \n");
@@ -422,7 +422,7 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     char aux[SECTOR_SIZE];
 
     int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
-    char temp2[tamanho] = {0};
+    char temp2[tamanho];
 
     temp2[0] = '\0';
 
@@ -879,30 +879,36 @@ int truncate2(FILE2 handle) {
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
 
-            int bytes_a_remover =
-                    arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer;
-            int novo_tamanho_arquivo = arquivos_abertos[handle].arquivo.bytesFileSize - bytes_a_remover;
+            int novo_tamanho_arquivo = arquivos_abertos[handle].current_pointer;
 
-            int antigo_num_clusters = arquivos_abertos[handle].arquivo.bytesFileSize / 1024;
-            int novo_num_clusters = novo_tamanho_arquivo / 1024;
+            int novo_num_clusters = 1 + (novo_tamanho_arquivo / SECTOR_SIZE) / 4;
 
-            int diferenca = antigo_num_clusters - novo_num_clusters;
+            printf("NOVO NUM CLUSTERS: %d\n", novo_num_clusters);
+
+            getchar();
 
             int next = arquivos_abertos[handle].arquivo.firstCluster;
             int anterior;
 
-            while (diferenca > 0) {
+            while (novo_num_clusters > 0) {
+                printf("NEXT = %d\n", next);
+                printf("ANTERIOR = %d\n", anterior);
                 anterior = next;
                 next = encontra_proximo_setor(anterior);
-                diferenca--;
+                novo_num_clusters--;
+                printf("DIFERENCA DENTRO DO WHILE: %d\n", novo_num_clusters);
+                getchar();
             }
 
-            printf("NEXT = %d", next);
-            printf("ANTERIOR = %d", anterior);
+
+            printf("ANTERIOR APOS WHILE = %d\n", anterior);
+
+
 
             if (insere_entrada_FAT(anterior, 0x00000000) < 0) {
                 return -1;
             }
+
 
             if (insere_entrada_FAT(anterior, 0xFFFFFFFF) < 0) {
                 return -1;
