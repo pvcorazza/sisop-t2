@@ -194,7 +194,7 @@ int busca_entrada_livre_dir(int cluster) {
         int j = 0;
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {
             memcpy(&raiz, &buffer[j], 64);
-            if (raiz.TypeVal == 0) {
+            if (raiz.TypeVal != TYPEVAL_REGULAR && raiz.TypeVal != TYPEVAL_DIRETORIO) {
                 return entrada;
             }
             entrada++;
@@ -396,8 +396,6 @@ DWORD encontra_proximo_setor(int cluster) {
 
     DWORD buffer[64];
 
-    printf("O setor é %d\n", setor);
-
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
         printf("Não foi possível fazer a leitura da FAT 4. \n");
         return 0xFFFFFFFF;
@@ -477,7 +475,12 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     char copia_buffer[size + SECTOR_SIZE];
     memset(copia_buffer, 0, (size_t) (size + SECTOR_SIZE));
     memcpy(&copia_buffer, buffer, (size_t) size);
+
     copia_buffer[size] = '\0';
+
+    printf("COPIA BUFFER: %s\n", copia_buffer);
+
+    getchar();
 
     char aux[SECTOR_SIZE] = {0};
 
@@ -491,21 +494,32 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         next = encontra_proximo_setor(next);
     }
 
-    if (read_sector((unsigned int) anterior * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) != 0) {
+    int deslocamento_cluster = (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) % 4;
+
+    if (read_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
+                    (unsigned char *) &aux) != 0) {
         return -1;
     }
+
+    printf("DESLOCAMENTO CLUSTER: %d\n", deslocamento_cluster);
 
     int num_bytes_escritos = arquivos_abertos[handle].arquivo.bytesFileSize -
                              (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) *
                              SECTOR_SIZE; /* Bytes escritos no último bloco */
     int num_bytes_livres = SECTOR_SIZE - num_bytes_escritos; /* Bytes livres no último bloco */
 
+    printf("Num bytes escritos: %d\n", num_bytes_escritos);
+    printf("Num bytes livres: %d\n", num_bytes_livres);
+
+    getchar();
+
     /* Se é possivel escrever em somente um setor */
 
 
     if (size <= num_bytes_livres) {
         memcpy(&aux[num_bytes_escritos], copia_buffer, (size_t) size);
-        if (write_sector((unsigned int) anterior * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) != 0) {
+        if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
+                         (unsigned char *) &aux) != 0) {
             printf("Não foi possível fazer a escrita da entrada. \n");
             return -1;
         }
@@ -517,7 +531,8 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
         memcpy(&aux[num_bytes_escritos], copia_buffer, (size_t) num_bytes_livres);
 
-        if (write_sector((unsigned int) anterior * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) != 0) {
+        if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
+                         (unsigned char *) &aux) != 0) {
             printf("Não foi possível fazer a escrita da entrada. \n");
             return -1;
         }
@@ -528,8 +543,12 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         int j;
         int restante = (SECTOR_SIZE * 4 - num_bytes_escritos) / SECTOR_SIZE;
 
-        for (j = num_bytes_escritos / SECTOR_SIZE + 1; j <= restante && qtd_copiada < size; j++) {
+        for (j = deslocamento_cluster + 1; j < 4 && qtd_copiada < size; j++) {
             memcpy(&aux, &copia_buffer[qtd_copiada], (size_t) SECTOR_SIZE);
+            printf("AUX: %s", aux);
+
+            getchar();
+
             if (write_sector((unsigned int) anterior * 4 + j + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) !=
                 0) {
                 printf("Não foi possível fazer a escrita da entrada. \n");
@@ -571,6 +590,9 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
                     return -1;
                 }
 
+                printf("NOVO: %s", aux);
+
+                getchar();
                 qtd_copiada = qtd_copiada + SECTOR_SIZE;
                 i++;
             }
@@ -976,7 +998,7 @@ int mkdir2(char *pathname) {
     char final[strlen(novo_pathname)];
 
     if (divide_caminho(novo_pathname, inicio, final) < 0) {
-        return -1;
+        return -2;
     }
 
     struct t2fs_record diretorio_pai;
@@ -986,7 +1008,7 @@ int mkdir2(char *pathname) {
 
     if (record.TypeVal != NULL) {
         printf("ERRO: O diretorio ja existe.\n");
-        return -1;
+        return -3;
     }
 
     diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
@@ -998,11 +1020,13 @@ int mkdir2(char *pathname) {
         if (posicao_FAT >= 0) {
 
             int posicao_dir = busca_entrada_livre_dir(diretorio_pai.firstCluster);
+            printf("Posição dir: %d\nFirst Cluster: %d\nPosicao FAT: %d\n", posicao_dir, diretorio_pai.firstCluster,
+                   posicao_FAT);
 
             if (posicao_dir >= 0) {
 
                 if (insere_entrada_FAT(posicao_FAT, 0xFFFFFFFF) < 0) {
-                    return -1;
+                    return -4;
                 }
 
                 struct t2fs_record novo;
@@ -1013,17 +1037,17 @@ int mkdir2(char *pathname) {
                 novo.bytesFileSize = 1024;
 
                 if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
-                    return -1;
+                    return -5;
                 }
 
                 strcpy(novo.name, ".");
                 if (insere_entrada(novo.firstCluster, novo, 0) < 0) {
-                    return -1;
+                    return -6;
                 }
 
                 strcpy(diretorio_pai.name, "..");
                 if (insere_entrada(novo.firstCluster, diretorio_pai, 1) < 0) {
-                    return -1;
+                    return -7;
                 }
 
                 return 0;
@@ -1031,7 +1055,7 @@ int mkdir2(char *pathname) {
 
         }
     }
-    return -1;
+    return -8;
 }
 
 int rmdir2(char *pathname) {
