@@ -206,6 +206,8 @@ int busca_entrada_livre_dir(int cluster) {
 int busca_posicao_entrada(char *name, int cluster) {
     struct t2fs_record record;
 
+    printf("NOME %s, CLUSTER: %d\n", name, cluster);
+
     int i;
     int entrada = 0;
 
@@ -498,6 +500,8 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
     if (read_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
                     (unsigned char *) &aux) != 0) {
+
+
         return -1;
     }
 
@@ -604,15 +608,23 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
     arquivos_abertos[handle].arquivo.bytesFileSize = arquivos_abertos[handle].arquivo.bytesFileSize + size;
 
+
+    printf("NOME ANTES DE ENTRAR : ");
+    puts(arquivos_abertos[handle].arquivo.name);
+
+
     int posicao_dir = busca_posicao_entrada(arquivos_abertos[handle].arquivo.name,
                                             arquivos_abertos[handle].diretorio_pai.firstCluster);
 
     if (posicao_dir < 0) {
+        printf("Posicao dir %d\n", posicao_dir);
         return -1;
     }
 
     if (insere_entrada(arquivos_abertos[handle].diretorio_pai.firstCluster, arquivos_abertos[handle].arquivo,
                        posicao_dir) < 0) {
+        printf("PROBLEMA NO INSERE ENTRADA\n");
+
         return -1;
     }
 
@@ -729,7 +741,8 @@ FILE2 create2(char *filename) {
                 FILE2 handle = busca_pos_array_arq();
 
                 if (handle >= 0 && handle <= MAX_ABERTOS) {
-                    arquivos_abertos[handle].arquivo = record;
+                    arquivos_abertos[handle].arquivo = novo;
+                    printf("Nome no create %s\n", arquivos_abertos[handle].arquivo.name);
                     arquivos_abertos[handle].aberto = 1;
                     arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
                     arquivos_abertos[handle].diretorio_pai = diretorio_pai;
@@ -826,6 +839,7 @@ FILE2 open2(char *filename) {
 
         if (record.name != NULL && record.TypeVal == TYPEVAL_REGULAR) {
             arquivos_abertos[handle].arquivo = record;
+            printf("Nome no open %s\n", arquivos_abertos[handle].arquivo.name);
             arquivos_abertos[handle].aberto = 1;
             arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
             arquivos_abertos[handle].diretorio_pai = pai;
