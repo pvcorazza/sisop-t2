@@ -26,11 +26,9 @@ int inicializa() {
 
         TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
         NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
-
         first_time = 0;
         inicializa_fat();
         return 0;
-
     }
 
     exit(1);
@@ -116,7 +114,7 @@ void le_diretorio(int cluster) {
         int j = 0;
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {
             memcpy(&raiz, &buffer[j], 64);
-            if (raiz.TypeVal != 0) {
+            if (raiz.TypeVal == TYPEVAL_DIRETORIO || raiz.TypeVal == TYPEVAL_REGULAR) {
                 printf("Tipo da entrada: Inválido=0, Arquivo = 1, Diretorio = 2: %d", raiz.TypeVal);
                 printf("\nNome do arquivo: %s", raiz.name);
                 printf("\nTamanho do arquivo: %d", raiz.bytesFileSize);
@@ -144,7 +142,7 @@ int conta_entradas_diretorio(int cluster) {
         int j = 0;
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {
             memcpy(&record, &buffer[j], 64);
-            if (record.TypeVal != 0) {
+            if (record.TypeVal == TYPEVAL_DIRETORIO || record.TypeVal == TYPEVAL_REGULAR) {
                 entradas++;
             }
         }
@@ -265,8 +263,15 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
     if (first_time) {
         inicializa();
     }
+
     char string[strlen(pathname)];
-    strcpy(string, pathname);
+
+
+    if (strcmp(pathname, "/") == 0) {
+        strcpy(string, ".");
+    } else {
+        strcpy(string, pathname);
+    }
 
     char *array[NUM_CLUSTERS]; //C-1 clusters possíveis para o diretório
 
@@ -754,7 +759,7 @@ FILE2 create2(char *filename) {
     return -1;
 }
 
-
+// O QUE FAZER SE ARQUIVO ESTÀ ABERTO???
 int delete2(char *filename) {
     if (first_time) {
         inicializa();
@@ -1101,12 +1106,19 @@ int rmdir2(char *pathname) {
 
     record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_pathname);
 
+    printf("Record nome: %s\n", record.name);
+    printf("Typeval: %d\n", record.TypeVal);
+
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
 
         int entradas = conta_entradas_diretorio(record.firstCluster);
 
+        printf("ENTRADAS: %d\n", entradas);
+
 
         if (entradas == 2) {
+
+            printf("Entrou entradas\n");
 
             struct t2fs_record novo = {0};
 
@@ -1121,7 +1133,10 @@ int rmdir2(char *pathname) {
 
             diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
 
+            printf("Diretorio pai: %s\n", diretorio_pai.name);
+
             int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
+            printf("Posicao dir: %d\n", posicao_dir);
 
             if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                 return -1;
@@ -1172,6 +1187,11 @@ DIR2 opendir2(char *pathname) {
         inicializa();
     }
 
+    if (strcmp(pathname, "/")) {
+
+
+    }
+
     DIR2 handle = busca_pos_array_dir();
     struct t2fs_record record;
 
@@ -1215,15 +1235,12 @@ int readdir2(DIR2 handle, DIRENT2 *dentry) {
                 int j = 0;
                 for (j = 0; j < SECTOR_SIZE; j = j + 64) {
                     memcpy(&record, &buffer[j], 64);
-                    if (record.TypeVal == 1 || record.TypeVal == 2) {
+                    if (record.TypeVal == TYPEVAL_REGULAR || record.TypeVal == TYPEVAL_DIRETORIO) {
                         if (current_entry == 0) {
-
                             dentry->fileType = record.TypeVal;
                             dentry->fileSize = record.bytesFileSize;
                             strcpy(dentry->name, record.name);
-
                             diretorios_abertos[handle].current_entry++;
-
                             return 0;
                         }
                         current_entry--;

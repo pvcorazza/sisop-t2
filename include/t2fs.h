@@ -305,12 +305,11 @@ Saída:	Se a operação foi realizada com sucesso, a função retorna "0" (zero).
 int closedir2 (DIR2 handle);
 
 /*------------------------------------------------------------------------------------------------------
- * FUNÇÕES AUXILIARES
+ * VARIÁVEIS AUXILIARES
 ------------------------------------------------------------------------------------------------------- */
 
 /* Variável global que armazena conteúdo do superbloco */
 struct t2fs_superbloco SUPERBLOCO;
-//struct ? DIRETORIO_CORRENTE;
 
 /* Número de setores que compõem a FAT */
 int TOTAL_SETORES_FAT;
@@ -321,39 +320,25 @@ int NUM_CLUSTERS;
 /* Estruturas para leitura das FAT */
 DWORD FAT[8192];
 
-/* Inicializa variáveis e estruturas necessárias para correta execução */
-int inicializa();
+/*------------------------------------------------------------------------------------------------------
+ * ESTRUTURAS
+------------------------------------------------------------------------------------------------------- */
 
-/* Imprime as informações do superbloco. */
-void print_superbloco_info();
-
-/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
-static int read_superblock();
-
-/* Inicializa o vetor da FAT */
-static int inicializa_fat();
-
-//Imprime  conteudo da FAT
-void imprime_conteudo_fat();
-
-//Realiza a leitura de todas as entradas de um diretório e imprime na tela.
-void le_diretorio(int cluster);
-
-// Lista duplamente encadeada com o caminho absoluto
+/* Lista duplamente encadeada para armazenar um caminho absoluto */
 struct lista_caminho_absoluto {
     char nome[55];
     struct lista_caminho_absoluto *proximo;
     struct lista_caminho_absoluto *anterior;
 };
 
-//Estrutura de um diretório aberto
+/* Estrutura com informações de um diretório aberto */
 struct dir_aberto {
     struct t2fs_record diretorio;
     int current_entry;
     int aberto;
 };
 
-//Estrutura de um arquivo aberto
+/* Estrutura com informação de um arquivo aberto */
 struct arq_aberto {
     struct t2fs_record arquivo;
     int current_pointer;
@@ -361,20 +346,42 @@ struct arq_aberto {
     struct t2fs_record diretorio_pai;
 };
 
+/*------------------------------------------------------------------------------------------------------
+ * FUNÇÕES DE DEBUG
+------------------------------------------------------------------------------------------------------- */
 
-//Busca por uma posição onde não tenha um diretório aberto
-DIR2 busca_pos_array_dir();
+/* Imprime as informações do superbloco. */
+void print_superbloco_info();
 
-//Recebe uma string com o caminho absoluto e divide esse caminho inserindo no array informado por parâmetro
-void caminho_para_array(char *string, char *array[]);
+/* Inicializa o vetor da FAT */
+static int inicializa_fat();
 
-//Recebe uma string com o caminho e divide esse caminho inserindo o nome do diretório ou arquivo em final, e o restante em inicio
-int divide_caminho(char *pathname, char *inicio, char *final);
+/* Imprime  conteudo da FAT */
+void imprime_conteudo_fat();
 
-struct t2fs_record compara_nomes(int cluster, char *pathname);
+/* Realiza a leitura de todas as entradas de um diretório e imprime na tela
+ * Entrada: Número do cluster do diretório */
+void le_diretorio(int cluster);
+
+/* Inicializa variáveis e estruturas necessárias para correta execução */
+int inicializa();
+
+/* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
+static int read_superblock();
 
 
-int verifica_absoluto(char *path);
+////Busca por uma posição onde não tenha um diretório aberto
+//DIR2 busca_pos_array_dir();
+//
+////Recebe uma string com o caminho absoluto e divide esse caminho inserindo no array informado por parâmetro
+//void caminho_para_array(char *string, char *array[]);
+//
+////Recebe uma string com o caminho e divide esse caminho inserindo o nome do diretório ou arquivo em final, e o restante em inicio
+//int divide_caminho(char *pathname, char *inicio, char *final);
+//
+//struct t2fs_record compara_nomes(int cluster, char *pathname);
+//
+//int verifica_absoluto(char *path);
 
 
 
