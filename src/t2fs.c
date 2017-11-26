@@ -204,7 +204,7 @@ int busca_entrada_livre_dir(int cluster) {
 int busca_posicao_entrada(char *name, int cluster) {
     struct t2fs_record record;
 
-    printf("NOME %s, CLUSTER: %d\n", name, cluster);
+//    printf("NOME %s, CLUSTER: %d\n", name, cluster);
 
     int i;
     int entrada = 0;
@@ -432,6 +432,7 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     temp2[0] = '\0';
 
     int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / 4;
+//    printf("OFFSET CLUSTER= %d", offset_cluster);
     int offset_cluster_original = offset_cluster;
     int i = 0;
 
@@ -485,9 +486,9 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
     copia_buffer[size] = '\0';
 
-    printf("COPIA BUFFER: %s\n", copia_buffer);
+//    printf("COPIA BUFFER: %s\n", copia_buffer);
 
-    getchar();
+//    getchar();
 
     char aux[SECTOR_SIZE] = {0};
 
@@ -510,17 +511,17 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         return -1;
     }
 
-    printf("DESLOCAMENTO CLUSTER: %d\n", deslocamento_cluster);
+//    printf("DESLOCAMENTO CLUSTER: %d\n", deslocamento_cluster);
 
     int num_bytes_escritos = arquivos_abertos[handle].arquivo.bytesFileSize -
                              (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) *
                              SECTOR_SIZE; /* Bytes escritos no último bloco */
     int num_bytes_livres = SECTOR_SIZE - num_bytes_escritos; /* Bytes livres no último bloco */
 
-    printf("Num bytes escritos: %d\n", num_bytes_escritos);
-    printf("Num bytes livres: %d\n", num_bytes_livres);
+//    printf("Num bytes escritos: %d\n", num_bytes_escritos);
+//    printf("Num bytes livres: %d\n", num_bytes_livres);
 
-    getchar();
+    // getchar();
 
     /* Se é possivel escrever em somente um setor */
 
@@ -556,7 +557,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
             memcpy(&aux, &copia_buffer[qtd_copiada], (size_t) SECTOR_SIZE);
             printf("AUX: %s", aux);
 
-            getchar();
+//            getchar();
 
             if (write_sector((unsigned int) anterior * 4 + j + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) !=
                 0) {
@@ -601,7 +602,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
                 printf("NOVO: %s", aux);
 
-                getchar();
+//                getchar();
                 qtd_copiada = qtd_copiada + SECTOR_SIZE;
                 i++;
             }
@@ -614,8 +615,8 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     arquivos_abertos[handle].arquivo.bytesFileSize = arquivos_abertos[handle].arquivo.bytesFileSize + size;
 
 
-    printf("NOME ANTES DE ENTRAR : ");
-    puts(arquivos_abertos[handle].arquivo.name);
+//    printf("NOME ANTES DE ENTRAR : ");
+//    puts(arquivos_abertos[handle].arquivo.name);
 
 
     int posicao_dir = busca_posicao_entrada(arquivos_abertos[handle].arquivo.name,
@@ -926,7 +927,7 @@ int truncate2(FILE2 handle) {
 
             printf("NOVO NUM CLUSTERS: %d\n", novo_num_clusters);
 
-            getchar();
+//            getchar();
 
             int next = arquivos_abertos[handle].arquivo.firstCluster;
             int anterior;
@@ -938,7 +939,7 @@ int truncate2(FILE2 handle) {
                 next = encontra_proximo_setor(anterior);
                 novo_num_clusters--;
                 printf("DIFERENCA DENTRO DO WHILE: %d\n", novo_num_clusters);
-                getchar();
+//                getchar();
             }
 
 
@@ -1177,7 +1178,7 @@ int getcwd2(char *pathname, int size) {
         return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
     } else {
         strcpy(pathname, current_path);
-        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+        return 0;         //Caso contrário copia a string para o endereço de memória indicada por pathname.
     }
 }
 
