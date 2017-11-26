@@ -53,7 +53,7 @@ void print_superbloco_info() {
     printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
     printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
     printf("Numero total de clusters: %d\n", NUM_CLUSTERS);
-    printf("Numero de setores lógicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
+    printf("Numero de setores logicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
 
 }
 
@@ -71,10 +71,11 @@ static int read_superblock() {
 }
 
 static int inicializa_fat() {
+
     int i, j = 0;
     for (i = SUPERBLOCO.pFATSectorStart; i <= TOTAL_SETORES_FAT + 1; i++) {
         if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0) {
-            printf("Não foi possível fazer a leitura da FAT 1. \n");
+            printf("ERRO: Nao foi possivel fazer a leitura da FAT 1. \n");
             return -1;
         } else {
             j = j + 64;
@@ -85,6 +86,7 @@ static int inicializa_fat() {
 
 
 void imprime_conteudo_fat() {
+
     if (first_time) {
         inicializa();
     }
@@ -98,6 +100,7 @@ void imprime_conteudo_fat() {
 }
 
 void le_diretorio(int cluster) {
+
     if (first_time) {
         inicializa();
     }
@@ -115,7 +118,7 @@ void le_diretorio(int cluster) {
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {
             memcpy(&raiz, &buffer[j], 64);
             if (raiz.TypeVal == TYPEVAL_DIRETORIO || raiz.TypeVal == TYPEVAL_REGULAR) {
-                printf("Tipo da entrada: Inválido=0, Arquivo = 1, Diretorio = 2: %d", raiz.TypeVal);
+                printf("Tipo da entrada: Invalido=0, Arquivo = 1, Diretorio = 2:  %d", raiz.TypeVal);
                 printf("\nNome do arquivo: %s", raiz.name);
                 printf("\nTamanho do arquivo: %d", raiz.bytesFileSize);
                 printf("\nPrimeiro cluster de dados: %d\n\n", raiz.firstCluster);
@@ -124,7 +127,79 @@ void le_diretorio(int cluster) {
     }
 }
 
+/* Função auxiliar à função tree2 definida abaixo, para imprimir determinado número de espaços em branco na tela */
+void printspace(int offset) {
+    int i;
+    for(i=0; i<offset; i++)
+        printf(" ");
+}
+
+/* Função de debugging para imprimir a árvore do sistema de arquivos. Offset é o deslocamento das linhas para impressão, devendo ser zero inialmente. */
+void tree2(int cluster, int offset) {
+
+    if (first_time) {
+        inicializa();
+    }
+
+    struct t2fs_record record;
+    int i,j;
+
+    if(cluster == SUPERBLOCO.RootDirCluster)
+        printf("\n/\n");
+
+    for(i=0; i<4; i++) {
+        unsigned char buffer[SECTOR_SIZE];
+        read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
+        for (j = 0; j < SECTOR_SIZE; j = j + 64) {    // j começa de 128 para não pegar '.' e '..'
+            memcpy(&record, &buffer[j], 64);
+            if (record.TypeVal != 0 && (i!=0 || j>=128)) {   // (p->q)  é o mesmo que (~p v q). Se 'i' for zero, só passa do if se j>=128, evitando assim '.' '..'
+                printspace(offset);
+                printf("|\n");
+                printspace(offset);
+                printf("|");
+                if(record.TypeVal == 2) {
+                    printf("-----%s\n", record.name);
+                    tree2(record.firstCluster, offset+8);
+                }
+                else {
+                    printf("-----%s\n", record.name);
+                }
+            }
+        }
+    }
+}
+
+/* Função de debugging para imprimir os arquivos (regulares e diretórios) abertos */
+void print_open_files() {
+
+    int handle;
+
+    printf("DIRETORIOS ABERTOS:\n");
+    for(handle = 0; handle<MAX_ABERTOS; handle++) {
+        if(diretorios_abertos[handle].aberto == 1) {
+            printf("HANDLE = %d\n", handle);
+            printf("Nome: %s\n", diretorios_abertos[handle].diretorio.name);
+            printf("Primeiro Cluster: %d\n", diretorios_abertos[handle].diretorio.firstCluster);
+            printf("Tamanho: %d\n", diretorios_abertos[handle].diretorio.bytesFileSize);
+            printf("Current_Entry: %d\n", diretorios_abertos[handle].current_entry);
+            printf("---------------------------------------\n");
+        }
+    }
+    printf("\nARQUIVOS REGULARES ABERTOS:\n");
+    for(handle = 0; handle<MAX_ABERTOS; handle++) {
+        if(arquivos_abertos[handle].aberto == 1) {
+            printf("HANDLE = %d\n", handle);
+            printf("Nome: %s\n", arquivos_abertos[handle].arquivo.name);
+            printf("Primeiro Cluster: %d\n", arquivos_abertos[handle].arquivo.firstCluster);
+            printf("Tamanho: %d\n", arquivos_abertos[handle].arquivo.bytesFileSize);
+            printf("Current_Pointer: %d\n", arquivos_abertos[handle].current_pointer);
+            printf("---------------------------------------\n");
+        }
+    }
+}
+
 int conta_entradas_diretorio(int cluster) {
+
     if (first_time) {
         inicializa();
     }
@@ -151,6 +226,7 @@ int conta_entradas_diretorio(int cluster) {
 }
 
 int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
+
     if (first_time) {
         inicializa();
     }
@@ -164,7 +240,7 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
     unsigned char buffer[SECTOR_SIZE];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("Não foi possível fazer a leitura da entrada. \n");
+        printf("ERRO: Nao foi possivel fazer a leitura da entrada. \n");
         return -1;
     }
 
@@ -172,7 +248,7 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
 
 
     if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("Não foi possível fazer a escrita da entrada. \n");
+        printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
         return -1;
     }
 }
@@ -247,7 +323,7 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
 
     char *temp_final = strrchr(temp_inicio, '/');
     if (temp_final == NULL) {
-        printf("Não pode dividir caminho");
+        printf("ERRO: Nao pode dividir caminho");
         return -1;
     }
 
@@ -310,10 +386,10 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
         k++;
     }
     return record_retorno;
-
 }
 
 DIR2 busca_pos_array_dir() {
+
     if (first_time) {
         inicializa();
     }
@@ -328,6 +404,7 @@ DIR2 busca_pos_array_dir() {
 }
 
 FILE2 busca_pos_array_arq() {
+
     if (first_time) {
         inicializa();
     }
@@ -348,7 +425,7 @@ int busca_pos_livre_FAT() {
 
     while (i <= TOTAL_SETORES_FAT + 1) {
         if (read_sector((unsigned int) i, (unsigned char *) &buffer) != 0) {
-            printf("Não foi possível fazer a leitura da FAT 2. \n");
+            printf("ERRO: Nao foi possivel fazer a leitura da FAT 2. \n");
             return -1;
         } else {
             j = 0;
@@ -364,7 +441,6 @@ int busca_pos_livre_FAT() {
     }
 
     return -1;
-
 }
 
 int insere_entrada_FAT(int posicao, DWORD entrada) {
@@ -374,7 +450,7 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
     DWORD buffer[64];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("Não foi possível fazer a leitura da FAT 3. \n");
+        printf("ERRO: Nao foi possivel fazer a leitura da FAT 3. \n");
         return -1;
     }
 
@@ -383,7 +459,7 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
         int proxima = buffer[posicao];
         buffer[posicao] = entrada;
         if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-            printf("Não foi possível fazer a escrita da FAT. \n");
+            printf("ERRO: Nao foi possivel fazer a escrita da FAT. \n");
             return -1;
         }
         posicao = proxima;
@@ -391,7 +467,7 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
 
     buffer[posicao] = entrada;
     if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("Não foi possível fazer a escrita da FAT. \n");
+        printf("ERRO: Nao foi possivel fazer a escrita da FAT. \n");
         return -1;
     }
 
@@ -404,7 +480,7 @@ DWORD encontra_proximo_setor(int cluster) {
     DWORD buffer[64];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("Não foi possível fazer a leitura da FAT 4. \n");
+        printf("ERRO: Nao foi possivel fazer a leitura da FAT 4. \n");
         return 0xFFFFFFFF;
     }
 
@@ -530,7 +606,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         memcpy(&aux[num_bytes_escritos], copia_buffer, (size_t) size);
         if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
                          (unsigned char *) &aux) != 0) {
-            printf("Não foi possível fazer a escrita da entrada. \n");
+            printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
         }
     } else {
@@ -543,7 +619,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
         if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
                          (unsigned char *) &aux) != 0) {
-            printf("Não foi possível fazer a escrita da entrada. \n");
+            printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
         }
         qtd_copiada = qtd_copiada + num_bytes_livres;
@@ -561,7 +637,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
             if (write_sector((unsigned int) anterior * 4 + j + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) !=
                 0) {
-                printf("Não foi possível fazer a escrita da entrada. \n");
+                printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                 return -1;
             }
 
@@ -596,7 +672,7 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
                 if (write_sector((unsigned int) (anterior * 4) + i + SUPERBLOCO.DataSectorStart,
                                  (unsigned char *) &novo) != 0) {
-                    printf("Não foi possível fazer a escrita da entrada. \n");
+                    printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                     return -1;
                 }
 
@@ -639,8 +715,6 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
 int verifica_absoluto(char *path) {
 
-
-    puts(path);
     if (path[0] == '/') {
         return 0;
     }
@@ -653,9 +727,8 @@ int insere_caminho_raiz(char *novo, char *path) {
     novo[0] = '.';
     novo[1] = '\0';
 
-
     if (verifica_absoluto(path) != 0) {
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO. Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -695,7 +768,7 @@ FILE2 create2(char *filename) {
     char novo_filename[strlen(filename) + 1];
     if (insere_caminho_raiz(novo_filename, filename) < 0) {
 
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO. Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -768,7 +841,7 @@ int delete2(char *filename) {
 
     char novo_filename[strlen(filename) + 1];
     if (insere_caminho_raiz(novo_filename, filename) < 0) {
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO: Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -819,7 +892,7 @@ FILE2 open2(char *filename) {
     char novo_filename[strlen(filename) + 1];
 
     if (insere_caminho_raiz(novo_filename, filename) < 0) {
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO: Caminho nao eh absoluto.");
         return -1;
     }
     puts(novo_filename);
@@ -1009,8 +1082,9 @@ int mkdir2(char *pathname) {
     }
 
     char novo_pathname[strlen(pathname) + 1];
+
     if (insere_caminho_raiz(novo_pathname, pathname) < 0) {
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO: Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -1040,8 +1114,6 @@ int mkdir2(char *pathname) {
         if (posicao_FAT >= 0) {
 
             int posicao_dir = busca_entrada_livre_dir(diretorio_pai.firstCluster);
-            printf("Posição dir: %d\nFirst Cluster: %d\nPosicao FAT: %d\n", posicao_dir, diretorio_pai.firstCluster,
-                   posicao_FAT);
 
             if (posicao_dir >= 0) {
 
@@ -1086,7 +1158,7 @@ int rmdir2(char *pathname) {
 
     char novo_pathname[strlen(pathname) + 1];
     if (insere_caminho_raiz(novo_pathname, pathname) < 0) {
-        printf("ERRO. Caminho não é absoluto.");
+        printf("ERRO: Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -1107,19 +1179,11 @@ int rmdir2(char *pathname) {
 
     record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_pathname);
 
-    printf("Record nome: %s\n", record.name);
-    printf("Typeval: %d\n", record.TypeVal);
-
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
 
         int entradas = conta_entradas_diretorio(record.firstCluster);
 
-        printf("ENTRADAS: %d\n", entradas);
-
-
         if (entradas == 2) {
-
-            printf("Entrou entradas\n");
 
             struct t2fs_record novo = {0};
 
@@ -1134,10 +1198,7 @@ int rmdir2(char *pathname) {
 
             diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
 
-            printf("Diretorio pai: %s\n", diretorio_pai.name);
-
             int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
-            printf("Posicao dir: %d\n", posicao_dir);
 
             if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                 return -1;
@@ -1276,5 +1337,3 @@ int closedir2(DIR2 handle) {
     return -1;
 
 }
-
-
