@@ -355,10 +355,9 @@ int insere_caminho_raiz(char *novo, char *path) {
         return -1;
     }
 
-
-    strcat(novo, path);
-
-
+    if (strcmp(path, "/") != 0) {
+        strcat(novo, path);
+    }
     return 0;
 }
 
@@ -762,7 +761,6 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 }
 
 
-/* Informa a identificação dos desenvolvedores do t2fs. */
 int identify2(char *name, int size) {
 
     if (first_time) {
@@ -771,13 +769,14 @@ int identify2(char *name, int size) {
 
     char names[] = "Giovani Tirello (252741)\nMarcelo Wille (228991)\nPaulo Corazza (192172)\n";
 
+    /* Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro,
+     * caso contrário copia os nomes para o endereço de memória indicada por 'name' */
     if (size < sizeof(names) / sizeof(char)) {
-        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+        return -1;
     } else {
         strcpy(name, names);
-        return 0;         //Caso contrário copia a string para o endereço de memória indicada por name.
+        return 0;
     }
-
 }
 
 
@@ -787,25 +786,21 @@ FILE2 create2(char *filename) {
         inicializa();
     }
 
-    char novo_filename[strlen(filename) + 1];
-    if (insere_caminho_raiz(novo_filename, filename) < 0) {
-
-        printf("ERRO. Caminho nao eh absoluto.");
-        return -1;
-    }
+    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
+    formata_caminho(filename, caminho_formatado);
 
 
-    char inicio[strlen(novo_filename)];
-    char final[strlen(novo_filename)];
+    char inicio[strlen(caminho_formatado)];
+    char final[strlen(caminho_formatado)];
 
-    if (divide_caminho(novo_filename, inicio, final) < 0) {
+    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
         return -1;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_filename);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
     if (record.TypeVal != NULL) {
         printf("ERRO: O arquivo ja existe.\n");
@@ -861,23 +856,20 @@ int delete2(char *filename) {
         inicializa();
     }
 
-    char novo_filename[strlen(filename) + 1];
-    if (insere_caminho_raiz(novo_filename, filename) < 0) {
-        printf("ERRO: Caminho nao eh absoluto.");
-        return -1;
-    }
+    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
+    formata_caminho(filename, caminho_formatado);
 
-    char inicio[strlen(novo_filename)];
-    char final[strlen(novo_filename)];
+    char inicio[strlen(caminho_formatado)];
+    char final[strlen(caminho_formatado)];
 
-    if (divide_caminho(novo_filename, inicio, final) < 0) {
+    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
         return -1;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_filename);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
     if (record.TypeVal == TYPEVAL_REGULAR) {
 
@@ -895,8 +887,6 @@ int delete2(char *filename) {
             return -1;
         }
 
-        //Verificar se é necessário zerar o cluster do arquivo também, ou somente a entrada na FAT.
-
         return 0;
 
     }
@@ -906,33 +896,25 @@ int delete2(char *filename) {
 
 FILE2 open2(char *filename) {
 
-
     if (first_time) {
         inicializa();
     }
 
-    char novo_filename[strlen(filename) + 1];
-
-    if (insere_caminho_raiz(novo_filename, filename) < 0) {
-        printf("ERRO: Caminho nao eh absoluto.");
-        return -1;
-    }
-    puts(novo_filename);
+    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
+    formata_caminho(filename, caminho_formatado);
 
     struct t2fs_record pai;
-
 
     FILE2 handle = busca_pos_array_arq();
     struct t2fs_record record;
 
-
     if (handle >= 0 && handle <= MAX_ABERTOS) {
-        record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_filename);
+        record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
-        char inicio[strlen(novo_filename)];
-        char final[strlen(novo_filename)];
+        char inicio[strlen(caminho_formatado)];
+        char final[strlen(caminho_formatado)];
 
-        if (divide_caminho(novo_filename, inicio, final) != 0) {
+        if (divide_caminho(caminho_formatado, inicio, final) != 0) {
             return -1;
         }
 
@@ -956,6 +938,8 @@ int close2(FILE2 handle) {
         inicializa();
     }
 
+    /* Se o handle informado está dentro do intervalo possível para arquivos abertos
+    * e o arquivo com o handle informado está aberto, marca arquivo como fechado */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
             arquivos_abertos[handle].aberto = 0;
@@ -1118,7 +1102,7 @@ int mkdir2(char *pathname) {
 
     record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
 
-    if (record.TypeVal != NULL) {
+    if (record.TypeVal == TYPEVAL_DIRETORIO) {
         printf("ERRO: O diretorio ja existe.\n");
         return -3;
     }
@@ -1174,27 +1158,20 @@ int rmdir2(char *pathname) {
         inicializa();
     }
 
-    char novo_pathname[strlen(pathname) + 1];
-    if (insere_caminho_raiz(novo_pathname, pathname) < 0) {
-        printf("ERRO: Caminho nao eh absoluto.");
-        return -1;
-    }
+    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
+    formata_caminho(pathname, caminho_formatado);
 
-    char inicio[strlen(novo_pathname)];
-    char final[strlen(novo_pathname)];
+    char inicio[strlen(caminho_formatado)];
+    char final[strlen(caminho_formatado)];
 
-    if (divide_caminho(novo_pathname, inicio, final) < 0) {
-        return -1;
-    }
-
-    if ((strcmp(final, ".") == 0) || (strcmp(final, ".") == 0)) {
+    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
         return -1;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_pathname);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
 
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
 
