@@ -334,19 +334,67 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
     return 0;
 }
 
+int verifica_absoluto(char *path) {
+
+    if (path[0] == '/') {
+        return 0;
+    }
+
+    return -1;
+
+}
+
+int insere_caminho_raiz(char *novo, char *path) {
+    novo[0] = '/';
+    novo[1] = '.';
+    novo[2] = '\0';
+
+
+    if (verifica_absoluto(path) != 0) {
+        printf("ERRO. Caminho nao eh absoluto.");
+        return -1;
+    }
+
+
+    strcat(novo, path);
+
+
+    return 0;
+}
+
+void formata_caminho(char *pathname, char *string) {
+//    printf("PATHNAME DENTRO DO FORMATA CAMINHO: %s\n", pathname);
+
+    if (verifica_absoluto(pathname) == 0) {
+        insere_caminho_raiz(string, pathname);
+    } else {
+        strcpy(string, current_path);
+        if (strcmp(current_path, "/") == 0) {
+            strcat(string, pathname);
+        } else {
+            strcat(string, "/");
+            strcat(string, pathname);
+        }
+    }
+}
+
 struct t2fs_record compara_nomes(int cluster, char *pathname) {
 
     if (first_time) {
         inicializa();
     }
 
-    char string[strlen(pathname)];
+    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
 
+    formata_caminho(pathname, caminho_formatado);
+    printf("STRING: %s\n", caminho_formatado);
 
-    if (strcmp(pathname, "/") == 0) {
+    char string[strlen(caminho_formatado)];
+
+    if (strcmp(caminho_formatado, "/") == 0) {
         strcpy(string, ".");
     } else {
-        strcpy(string, pathname);
+        strcpy(string, caminho_formatado);
     }
 
     char *array[NUM_CLUSTERS]; //C-1 clusters possíveis para o diretório
@@ -713,32 +761,6 @@ int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     return size;
 }
 
-int verifica_absoluto(char *path) {
-
-    if (path[0] == '/') {
-        return 0;
-    }
-
-    return -1;
-
-}
-
-int insere_caminho_raiz(char *novo, char *path) {
-    novo[0] = '.';
-    novo[1] = '\0';
-
-    if (verifica_absoluto(path) != 0) {
-        printf("ERRO. Caminho nao eh absoluto.");
-        return -1;
-    }
-
-
-    strcat(novo, path);
-
-
-    return 0;
-}
-
 
 /* Informa a identificação dos desenvolvedores do t2fs. */
 int identify2(char *name, int size) {
@@ -1081,24 +1103,20 @@ int mkdir2(char *pathname) {
         inicializa();
     }
 
-    char novo_pathname[strlen(pathname) + 1];
+    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
+    formata_caminho(pathname, caminho_formatado);
 
-    if (insere_caminho_raiz(novo_pathname, pathname) < 0) {
-        printf("ERRO: Caminho nao eh absoluto.");
-        return -1;
-    }
+    char inicio[strlen(caminho_formatado)];
+    char final[strlen(caminho_formatado)];
 
-    char inicio[strlen(novo_pathname)];
-    char final[strlen(novo_pathname)];
-
-    if (divide_caminho(novo_pathname, inicio, final) < 0) {
+    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
         return -2;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, novo_pathname);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
 
     if (record.TypeVal != NULL) {
         printf("ERRO: O diretorio ja existe.\n");
@@ -1162,7 +1180,6 @@ int rmdir2(char *pathname) {
         return -1;
     }
 
-
     char inicio[strlen(novo_pathname)];
     char final[strlen(novo_pathname)];
 
@@ -1217,12 +1234,21 @@ int rmdir2(char *pathname) {
 
 int chdir2(char *pathname) {
 
+    if (first_time) {
+        inicializa();
+    }
+
     struct t2fs_record current;
 
+    /* Busca e verifica a existência do diretório informado por 'pathname' */
     current = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
 
+    /* Caso a entrada encontrada é um diretório, formata o caminho e o insere
+     * no diretório atual */
     if (current.TypeVal == TYPEVAL_DIRETORIO) {
-        strcpy(current_path, pathname);
+        char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
+        formata_caminho(pathname, caminho_formatado);
+        strcpy(current_path, caminho_formatado);
         return 0;
     }
 
@@ -1235,11 +1261,13 @@ int getcwd2(char *pathname, int size) {
         inicializa();
     }
 
+    /* Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro,
+     * caso contrário copia o diretório atual para o endereço de memória indicada por pathname */
     if (size < strlen(current_path)) {
-        return -1;        //Se o tamanho informado for menor do que o tamanho da string retorna -1, indicando erro
+        return -1;
     } else {
         strcpy(pathname, current_path);
-        return 0;         //Caso contrário copia a string para o endereço de memória indicada por pathname.
+        return 0;
     }
 }
 
@@ -1249,14 +1277,12 @@ DIR2 opendir2(char *pathname) {
         inicializa();
     }
 
-    if (strcmp(pathname, "/")) {
-
-
-    }
-
+    /* Busca por um handle disponível no array de diretórios abertos */
     DIR2 handle = busca_pos_array_dir();
     struct t2fs_record record;
 
+    /* Se handle está no intervalo possível, busca e verifica a existência do diretório informado,
+     * caso exista, o insere no array de diretórios abertos e marca como aberto. */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
         if (record.name != NULL && record.TypeVal == TYPEVAL_DIRETORIO) {
@@ -1327,6 +1353,8 @@ int closedir2(DIR2 handle) {
         inicializa();
     }
 
+    /* Se o handle informado está dentro do intervalo possível para diretórios abertos
+     * e o diretório com o handle informado está aberto, marca diretório como fechado */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (diretorios_abertos[handle].aberto == 1) {
             diretorios_abertos[handle].aberto = 0;

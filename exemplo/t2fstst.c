@@ -33,6 +33,10 @@ void cmdFscp(void);
 
 void cmdExit(void);
 
+void cmdChdir(void);
+
+void cmdGetCwd(void);
+
 static void dump(char *buffer, int size) {
     int base, i;
     char c;
@@ -72,6 +76,8 @@ static void dump(char *buffer, int size) {
 #define    CMD_TRUNCATE    13
 #define    CMD_COPY    14
 #define    CMD_FS_COPY    15
+#define    CMD_CHDIR    16
+#define    CMD_GETCWD    17
 
 char helpString[][120] = {
         "            -> finish this shell",
@@ -145,6 +151,8 @@ struct {
         {"cp",       cmdCp,     CMD_COPY},
         {"nl",       cmdExit,   CMD_EXIT},
         {"fscp",     cmdFscp,   CMD_FS_COPY},
+        {"cd",       cmdChdir,  CMD_CHDIR},
+        {"pwd",      cmdGetCwd, CMD_GETCWD},
         {"nl",       cmdExit,   CMD_EXIT},
         {"fim", NULL, -1}
 };
@@ -705,4 +713,35 @@ void cmdSeek(void) {
 
     printf ("Seek completado para a posicao %d\n", size);
 
+}
+
+void cmdChdir(void) {
+
+    // get first parameter => file handle
+    char *token = strtok(NULL, " \t");
+    if (token == NULL) {
+        printf("Missing parameter\n");
+        return;
+    }
+
+
+    // seek
+    int err = chdir2(token);
+    if (err < 0) {
+        printf("Error: %d\n", err);
+        return;
+    }
+
+    printf("Caminho Alterado\n");
+
+}
+
+void cmdGetCwd(void) {
+    char name[8192];
+    int err = getcwd2(name, 8192);
+    if (err) {
+        printf("Erro: %d\n", err);
+        return;
+    }
+    printf("%s\n", name);
 }
