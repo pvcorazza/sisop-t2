@@ -34,29 +34,6 @@ int inicializa() {
     exit(1);
 }
 
-void print_superbloco_info() {
-
-    if (first_time) {
-        inicializa();
-    }
-
-    printf("Dados do superbloco:\n");
-    printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2],
-           SUPERBLOCO.id[3]);
-    printf("Versao do Sistema de Arquivos: %X\n", SUPERBLOCO.version);
-    printf("Numero de setores logicos do superbloco: %d\n", SUPERBLOCO.SuperBlockSize);
-    printf("Tamanho total da particao (em bytes): %d\n", SUPERBLOCO.DiskSize);
-    printf("Numero de setores logicos na particao: %d\n", SUPERBLOCO.NofSectors);
-    printf("Numero de setores logicos por cluster: %d\n", SUPERBLOCO.SectorsPerCluster);
-    printf("Primeiro setor logico da FAT: %d\n", SUPERBLOCO.pFATSectorStart);
-    printf("Cluster onde inicia o arquivo correspondente ao diretorio raiz: %d\n", SUPERBLOCO.RootDirCluster);
-    printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
-    printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
-    printf("Numero total de clusters: %d\n", NUM_CLUSTERS);
-    printf("Numero de setores logicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
-
-}
-
 static int read_superblock() {
 
     BYTE buffer[SECTOR_SIZE];
@@ -84,6 +61,28 @@ static int inicializa_fat() {
     return 0;
 }
 
+void print_superbloco_info() {
+
+    if (first_time) {
+        inicializa();
+    }
+
+    printf("Dados do superbloco:\n");
+    printf("Identificacao do sistema de arquivos: %c%c%c%c\n", SUPERBLOCO.id[0], SUPERBLOCO.id[1], SUPERBLOCO.id[2],
+           SUPERBLOCO.id[3]);
+    printf("Versao do Sistema de Arquivos: %X\n", SUPERBLOCO.version);
+    printf("Numero de setores logicos do superbloco: %d\n", SUPERBLOCO.SuperBlockSize);
+    printf("Tamanho total da particao (em bytes): %d\n", SUPERBLOCO.DiskSize);
+    printf("Numero de setores logicos na particao: %d\n", SUPERBLOCO.NofSectors);
+    printf("Numero de setores logicos por cluster: %d\n", SUPERBLOCO.SectorsPerCluster);
+    printf("Primeiro setor logico da FAT: %d\n", SUPERBLOCO.pFATSectorStart);
+    printf("Cluster onde inicia o arquivo correspondente ao diretorio raiz: %d\n", SUPERBLOCO.RootDirCluster);
+    printf("Primeiro setor logico da area de blocos de dados ou cluster: %d\n\n", SUPERBLOCO.DataSectorStart);
+    printf("OUTROS DADOS SOBRE O SISTEMA DE ARQUIVOS:\n\n");
+    printf("Numero total de clusters: %d\n", NUM_CLUSTERS);
+    printf("Numero de setores logicos ocupados pela FAT: %d\n", TOTAL_SETORES_FAT);
+
+}
 
 void imprime_conteudo_fat() {
 
@@ -316,24 +315,6 @@ void caminho_para_array(char *string, char *array[]) {
     }
 }
 
-int divide_caminho(char *pathname, char *inicio, char *final) {
-
-    char temp_inicio[strlen(pathname + 1)];
-    strcpy(temp_inicio, pathname);
-
-    char *temp_final = strrchr(temp_inicio, '/');
-    if (temp_final == NULL) {
-        printf("ERRO: Nao pode dividir caminho");
-        return -1;
-    }
-
-    strcpy(final, temp_final + 1);
-    temp_inicio[temp_final - temp_inicio] = '\0';
-    strcpy(inicio, temp_inicio);
-
-    return 0;
-}
-
 int verifica_absoluto(char *path) {
 
     if (path[0] == '/') {
@@ -375,6 +356,29 @@ void formata_caminho(char *pathname, char *string) {
             strcat(string, pathname);
         }
     }
+}
+
+int divide_caminho(char *pathname, char *inicio, char *final) {
+
+    /* Formata caminho para correta divisão entre caminho e nome do arquivo */
+
+    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
+    formata_caminho(pathname, caminho_formatado);
+
+    char temp_inicio[strlen(caminho_formatado + 1)];
+    strcpy(temp_inicio, caminho_formatado);
+
+    char *temp_final = strrchr(temp_inicio, '/');
+    if (temp_final == NULL) {
+        printf("ERRO: Nao pode dividir caminho");
+        return -1;
+    }
+
+    strcpy(final, temp_final + 1);
+    temp_inicio[temp_final - temp_inicio] = '\0';
+    strcpy(inicio, temp_inicio);
+
+    return 0;
 }
 
 struct t2fs_record compara_nomes(int cluster, char *pathname) {
@@ -779,44 +783,46 @@ int identify2(char *name, int size) {
     }
 }
 
-
 FILE2 create2(char *filename) {
 
     if (first_time) {
         inicializa();
     }
 
-    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
-    formata_caminho(filename, caminho_formatado);
+    /* Divide entre caminho e nome do arquivo */
+    char inicio[strlen(filename) + strlen(current_path) + 2];
+    char final[strlen(filename) + strlen(current_path) + 2];
 
-
-    char inicio[strlen(caminho_formatado)];
-    char final[strlen(caminho_formatado)];
-
-    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
+    if (divide_caminho(filename, inicio, final) < 0) {
         return -1;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
+    /* Verifica se arquivo já existe */
     record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
-    if (record.TypeVal != NULL) {
+    if (record.TypeVal == TYPEVAL_REGULAR) {
         printf("ERRO: O arquivo ja existe.\n");
         return -1;
     }
 
     diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
 
-    if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) { //Pode criar arquivo
+    /* Se existe um diretório pai pode criar o arquivo */
+    if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) {
 
+        /* Busca posição para alocar o arquivo na FAT */
         int posicao_FAT = busca_pos_livre_FAT();
 
         if (posicao_FAT >= 0) {
 
+            /* Caso encontre posição na FAT, busca posição livre no diretório pai */
             int posicao_dir = busca_entrada_livre_dir(diretorio_pai.firstCluster);
 
+            /* Ao encontrar posição livre no diretório pai, insere a entrada correspondente ao arquivo na FAT,
+             * no diretório pai e no array de arquivos abertos retornando o handle do arquivo criado. */
             if (posicao_dir >= 0) {
 
                 if (insere_entrada_FAT(posicao_FAT, 0xFFFFFFFF) < 0) {
@@ -856,21 +862,21 @@ int delete2(char *filename) {
         inicializa();
     }
 
-    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
-    formata_caminho(filename, caminho_formatado);
+    /* Divide entre caminho e nome do arquivo */
+    char inicio[strlen(filename) + strlen(current_path) + 2];
+    char final[strlen(filename) + strlen(current_path) + 2];
 
-    char inicio[strlen(caminho_formatado)];
-    char final[strlen(caminho_formatado)];
-
-    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
+    if (divide_caminho(filename, inicio, final) < 0) {
         return -1;
     }
 
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
+    /* Verifica se arquivo existe */
     record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
+    /* Se arquivo existe, remove sua entrada do diretório pai e zera sua entrada na FAT */
     if (record.TypeVal == TYPEVAL_REGULAR) {
 
         struct t2fs_record novo = {0};
@@ -900,21 +906,22 @@ FILE2 open2(char *filename) {
         inicializa();
     }
 
-    char caminho_formatado[strlen(filename) + strlen(current_path) + 2];
-    formata_caminho(filename, caminho_formatado);
-
     struct t2fs_record pai;
 
+    /* Busca por um handle disponível no array de arquivos abertos */
     FILE2 handle = busca_pos_array_arq();
     struct t2fs_record record;
 
+    /* Se handle está no intervalo possível, busca e verifica a existência do arquivo informado,
+     * busca pelo seu diretório pai, o insere no array de arquivos abertos, marcando como aberto,
+     * seta seu current pointer para 0 e devolve o handle do arquivo criado. */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
 
-        char inicio[strlen(caminho_formatado)];
-        char final[strlen(caminho_formatado)];
+        char inicio[strlen(filename) + strlen(current_path) + 2];
+        char final[strlen(filename) + strlen(current_path) + 2];
 
-        if (divide_caminho(caminho_formatado, inicio, final) != 0) {
+        if (divide_caminho(filename, inicio, final) < 0) {
             return -1;
         }
 
@@ -922,9 +929,8 @@ FILE2 open2(char *filename) {
 
         if (record.name != NULL && record.TypeVal == TYPEVAL_REGULAR) {
             arquivos_abertos[handle].arquivo = record;
-            printf("Nome no open %s\n", arquivos_abertos[handle].arquivo.name);
             arquivos_abertos[handle].aberto = 1;
-            arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
+            arquivos_abertos[handle].current_pointer = 0;
             arquivos_abertos[handle].diretorio_pai = pai;
             return handle;
         }
@@ -956,6 +962,10 @@ int read2(FILE2 handle, char *buffer, int size) {
         inicializa();
     }
 
+    /* Se o handle informado está dentro do intervalo possível para arquivos abertos,
+     * o arquivo com o handle informado está aberto e seu current pointer não ultrapassou
+     * o final do arquivo, realiza a leitura de "size" bytes, atualiza o current pointer
+     * e retorna o numero de bytes lidos */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
             if (arquivos_abertos[handle].current_pointer <= arquivos_abertos[handle].arquivo.bytesFileSize) {
@@ -975,9 +985,15 @@ int read2(FILE2 handle, char *buffer, int size) {
 
 
 int write2(FILE2 handle, char *buffer, int size) {
+
     if (first_time) {
         inicializa();
     }
+
+    /* Se o handle informado está dentro do intervalo possível para arquivos abertos e
+     * o arquivo com o handle informado está aberto, realiza a escrita de "size" bytes
+     * disponíveis em 'buffer', atualiza o current pointer do arquivo para o final e
+     * e retorna o numero de bytes escritos */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
             int retorno = escreve_bytes_arquivo(size, handle, buffer);
@@ -997,6 +1013,9 @@ int truncate2(FILE2 handle) {
         inicializa();
     }
 
+
+    /* Se o handle informado está dentro do intervalo possível para arquivos abertos e
+     * o arquivo com o handle informado está aberto */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
 
@@ -1004,32 +1023,18 @@ int truncate2(FILE2 handle) {
 
             int novo_num_clusters = 1 + (novo_tamanho_arquivo / SECTOR_SIZE) / 4;
 
-            printf("NOVO NUM CLUSTERS: %d\n", novo_num_clusters);
-
-//            getchar();
-
             int next = arquivos_abertos[handle].arquivo.firstCluster;
-            int anterior;
+            int anterior = arquivos_abertos[handle].arquivo.firstCluster;
 
             while (novo_num_clusters > 0) {
-                printf("NEXT = %d\n", next);
-                printf("ANTERIOR = %d\n", anterior);
                 anterior = next;
                 next = encontra_proximo_setor(anterior);
                 novo_num_clusters--;
-                printf("DIFERENCA DENTRO DO WHILE: %d\n", novo_num_clusters);
-//                getchar();
             }
-
-
-            printf("ANTERIOR APOS WHILE = %d\n", anterior);
-
-
 
             if (insere_entrada_FAT(anterior, 0x00000000) < 0) {
                 return -1;
             }
-
 
             if (insere_entrada_FAT(anterior, 0xFFFFFFFF) < 0) {
                 return -1;
@@ -1065,14 +1070,14 @@ int seek2(FILE2 handle, unsigned int offset) {
         if (arquivos_abertos[handle].aberto == 1) {
             if (offset <=
                 arquivos_abertos[handle].arquivo.bytesFileSize) { //Lembrar de corrigir <= após perguntar pro professor
-//                if (offset == -1) {
-//                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize+1;
-//                    return 0;
-//                }
-//                else {
+                //                if (offset == -1) {
+                //                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize+1;
+                //                    return 0;
+                //                }
+                //                else {
                 arquivos_abertos[handle].current_pointer = offset;
                 return 0;
-//                }
+                //                }
 
             }
         }
@@ -1087,14 +1092,11 @@ int mkdir2(char *pathname) {
         inicializa();
     }
 
-    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
-    formata_caminho(pathname, caminho_formatado);
+    char inicio[strlen(pathname) + strlen(current_path) + 2];
+    char final[strlen(pathname) + strlen(current_path) + 2];
 
-    char inicio[strlen(caminho_formatado)];
-    char final[strlen(caminho_formatado)];
-
-    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
-        return -2;
+    if (divide_caminho(pathname, inicio, final) < 0) {
+        return -1;
     }
 
     struct t2fs_record diretorio_pai;
@@ -1158,13 +1160,10 @@ int rmdir2(char *pathname) {
         inicializa();
     }
 
-    char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
-    formata_caminho(pathname, caminho_formatado);
+    char inicio[strlen(pathname) + strlen(current_path) + 2];
+    char final[strlen(pathname) + strlen(current_path) + 2];
 
-    char inicio[strlen(caminho_formatado)];
-    char final[strlen(caminho_formatado)];
-
-    if (divide_caminho(caminho_formatado, inicio, final) < 0) {
+    if (divide_caminho(pathname, inicio, final) < 0) {
         return -1;
     }
 
