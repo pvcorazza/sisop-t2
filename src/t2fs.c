@@ -381,7 +381,7 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
     return 0;
 }
 
-struct t2fs_record compara_nomes(int cluster, char *pathname) {
+struct t2fs_record compara_nomes(int cluster, char *pathname, int typeval) {
 
     if (first_time) {
         inicializa();
@@ -390,7 +390,6 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
     char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
 
     formata_caminho(pathname, caminho_formatado);
-    printf("STRING: %s\n", caminho_formatado);
 
     char string[strlen(caminho_formatado)];
 
@@ -423,10 +422,12 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
             int j = 0;
             for (j = 0; j < SECTOR_SIZE; j = j + 64) {
                 memcpy(&record, &buffer[j], 64);
-                if (!strcmp(record.name, array[k])) {
+                if (!strcmp(record.name, array[k]) && (array[k + 1] != NULL || typeval == record.TypeVal)) {
                     encontrou = 1;
                     temp_cluster = record.firstCluster;
                     record_retorno = record;
+
+
                 }
             }
         }
@@ -438,6 +439,7 @@ struct t2fs_record compara_nomes(int cluster, char *pathname) {
     }
     return record_retorno;
 }
+
 
 DIR2 busca_pos_array_dir() {
 
@@ -545,18 +547,18 @@ DWORD encontra_proximo_setor(int cluster) {
 
 int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
-    if (size > arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer) {
+    printf("ENTROU AQUI");
 
+    /* Se o tamanho informado é maior que a diferença entre o current pointer e o tamanho, atualiza o tamanho a ser
+     * lido para somente essa diferença. */
+    if (size > arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer) {
         size = arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer;
         printf("SIZE: %d\n\n", size);
     }
 
-    char aux[SECTOR_SIZE];
-
     int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
-    char temp2[tamanho];
-
-    temp2[0] = '\0';
+    char total_bytes_lidos[tamanho];
+    total_bytes_lidos[0] = '\0';
 
     int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / 4;
 //    printf("OFFSET CLUSTER= %d", offset_cluster);
@@ -574,23 +576,23 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     int diferenca =
             arquivos_abertos[handle].current_pointer - (arquivos_abertos[handle].current_pointer / 256) * SECTOR_SIZE;
 
+    char aux[SECTOR_SIZE];
+
     for (i = 0; i < 4 - offset_setor; i++) {
         if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i + offset_setor,
                         (unsigned char *) &aux) == 0) {
-            strcat(temp2, aux);
+            strcat(total_bytes_lidos, aux);
         } else {
             return -1;
         }
     }
 
-
     next = encontra_proximo_setor(next);
-
 
     while (next != 0xFFFFFFFF) {
         for (i = 0; i < 4; i++) {
             if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i, (unsigned char *) &aux) == 0) {
-                strcat(temp2, aux);
+                strcat(total_bytes_lidos, aux);
             } else {
                 return -1;
             }
@@ -598,12 +600,151 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         next = encontra_proximo_setor(next);
     }
 
-    memcpy(buffer, &temp2[diferenca], (size_t) size);
+    memcpy(buffer, &total_bytes_lidos[diferenca], (size_t) size);
 
     return size;
 }
 
-int escreve_bytes_arquivo(int size, FILE2 handle, char *buffer) {
+int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
+
+    int tamanho_a_escrever = size;
+
+    /* Se o tamanho informado é maior que a diferença entre o current pointer e o tamanho, atualiza o tamanho a ser
+    * escrito para somente essa diferença. */
+    if (size > arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer) {
+        tamanho_a_escrever = arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer;
+    }
+
+    int tamanho_a_escrever_original = tamanho_a_escrever;
+
+    printf("TAMANHO A ESCREVER ORIGINAL %d\n", tamanho_a_escrever_original);
+
+    int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
+    char total_bytes_lidos[tamanho];
+    total_bytes_lidos[0] = '\0';
+
+    int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / 4;
+//    printf("OFFSET CLUSTER= %d", offset_cluster);
+    int offset_cluster_original = offset_cluster;
+    int i = 0;
+
+    DWORD next = arquivos_abertos[handle].arquivo.firstCluster;
+
+    while (offset_cluster > 0) {
+        next = encontra_proximo_setor(next);
+        offset_cluster--;
+    }
+
+    int offset_setor = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) - 4 * offset_cluster_original;
+    int diferenca =
+            arquivos_abertos[handle].current_pointer - (arquivos_abertos[handle].current_pointer / 256) * SECTOR_SIZE;
+
+
+    char read_aux[SECTOR_SIZE];
+    char aux[SECTOR_SIZE];
+
+
+    if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor, (unsigned char *) &read_aux) ==
+        0) {
+
+        if ((SECTOR_SIZE - diferenca) < tamanho_a_escrever) {
+            memcpy(&read_aux[diferenca], &buffer[0], (size_t) SECTOR_SIZE - diferenca);
+            printf("TAMANHO A ESCREVERL: %d\n", tamanho_a_escrever);
+            printf("DIFERENca: %d\n", diferenca);
+            int teste = SECTOR_SIZE - diferenca;
+            tamanho_a_escrever = tamanho_a_escrever - teste;
+        } else {
+            printf("READ AUX ORIGINAL: %s\n", read_aux);
+            printf("BUFFER ORIGINAL: %s\n", buffer);
+            printf("TAMANHO A ESCREVER: %d\n", tamanho_a_escrever);
+
+            memcpy(&read_aux[diferenca], &buffer[0], (size_t) tamanho_a_escrever);
+            tamanho_a_escrever = 0;
+        }
+
+        printf("READ AUX: %s\n", read_aux);
+        write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor, (unsigned char *) &read_aux);
+        printf("PRIMEIRO OFFSET SETOR %d\n", offset_setor);
+        if (tamanho_a_escrever == 0) {
+            printf("RETORNO NO PRIMEIRO SETOR");
+            return size - tamanho_a_escrever_original;
+        }
+
+        printf("TAMANHO A ESCREVER ANTES DO PRIMEIRO WHILE: %d\n", tamanho_a_escrever);
+
+        while (++offset_setor < 4) {
+            printf("OFFSET SETOR %d\n", offset_setor);
+            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
+                            (unsigned char *) &aux) == 0) {
+                printf("O QUE FALTA ESCREVER: %d\n", tamanho_a_escrever_original - tamanho_a_escrever);
+                if (SECTOR_SIZE < tamanho_a_escrever) {
+
+
+                    memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever], (size_t) SECTOR_SIZE);
+                    tamanho_a_escrever = tamanho_a_escrever - SECTOR_SIZE;
+                } else {
+                    memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever],
+                           (size_t) tamanho_a_escrever);
+                    tamanho_a_escrever = 0;
+                }
+                printf("AUX 2: %s\n", aux);
+
+                write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
+                             (unsigned char *) &aux);
+                if (tamanho_a_escrever == 0) {
+                    printf("RETORNO NO PRIMEIRO CLUSTER");
+                    return size - tamanho_a_escrever_original;
+                }
+            } else {
+                return -1;
+            }
+        }
+
+
+    } else {
+        return -1;
+    }
+
+    next = encontra_proximo_setor(next);
+
+    while (next != 0xFFFFFFFF && tamanho_a_escrever != 0) {
+        for (i = 0; i < 4; i++) {
+            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) == 0) {
+
+                printf("O NEXT É %d\n", next);
+                printf("O AUX É %s\n", aux);
+
+                getchar();
+
+                if (SECTOR_SIZE < tamanho_a_escrever) {
+                    memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever], (size_t) SECTOR_SIZE);
+                    tamanho_a_escrever = tamanho_a_escrever - SECTOR_SIZE;
+                } else {
+                    memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever],
+                           (size_t) tamanho_a_escrever);
+                    tamanho_a_escrever = 0;
+                }
+
+
+                write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux);
+                if (tamanho_a_escrever == 0) {
+                    printf("RETORNO NO CLUSTER %d", next);
+                    return size - tamanho_a_escrever_original;
+                }
+
+            } else {
+                return -1;
+            }
+        }
+        next = encontra_proximo_setor(next);
+    }
+
+    return size - tamanho_a_escrever_original;
+
+
+}
+
+int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
     /* Cópia de buffer e inicialização com 0 */
 
@@ -801,14 +942,14 @@ FILE2 create2(char *filename) {
     struct t2fs_record record;
 
     /* Verifica se arquivo já existe */
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename, TYPEVAL_REGULAR);
 
     if (record.TypeVal == TYPEVAL_REGULAR) {
         printf("ERRO: O arquivo ja existe.\n");
         return -1;
     }
 
-    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
 
     /* Se existe um diretório pai pode criar o arquivo */
     if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) {
@@ -856,7 +997,6 @@ FILE2 create2(char *filename) {
     return -1;
 }
 
-// O QUE FAZER SE ARQUIVO ESTÀ ABERTO???
 int delete2(char *filename) {
     if (first_time) {
         inicializa();
@@ -874,14 +1014,14 @@ int delete2(char *filename) {
     struct t2fs_record record;
 
     /* Verifica se arquivo existe */
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, filename, TYPEVAL_REGULAR);
 
     /* Se arquivo existe, remove sua entrada do diretório pai e zera sua entrada na FAT */
     if (record.TypeVal == TYPEVAL_REGULAR) {
 
         struct t2fs_record novo = {0};
 
-        diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+        diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
 
         int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
 
@@ -916,7 +1056,7 @@ FILE2 open2(char *filename) {
      * busca pelo seu diretório pai, o insere no array de arquivos abertos, marcando como aberto,
      * seta seu current pointer para 0 e devolve o handle do arquivo criado. */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
-        record = compara_nomes(SUPERBLOCO.RootDirCluster, filename);
+        record = compara_nomes(SUPERBLOCO.RootDirCluster, filename, TYPEVAL_REGULAR);
 
         char inicio[strlen(filename) + strlen(current_path) + 2];
         char final[strlen(filename) + strlen(current_path) + 2];
@@ -925,7 +1065,7 @@ FILE2 open2(char *filename) {
             return -1;
         }
 
-        pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+        pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
 
         if (record.name != NULL && record.TypeVal == TYPEVAL_REGULAR) {
             arquivos_abertos[handle].arquivo = record;
@@ -996,17 +1136,44 @@ int write2(FILE2 handle, char *buffer, int size) {
      * e retorna o numero de bytes escritos */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
-            int retorno = escreve_bytes_arquivo(size, handle, buffer);
-            if (retorno >= 0) {
-                arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
-                return retorno;
+
+
+            if (arquivos_abertos[handle].current_pointer > arquivos_abertos[handle].arquivo.bytesFileSize) {
+                int retorno = escreve_bytes_final_arquivo(size, handle, buffer);
+                if (retorno >= 0) {
+                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
+                    return retorno;
+                }
+            } else {
+                int restante = escreve_bytes_dentro_arquivo(size, handle, buffer);
+                printf("RESTANTE APOS ESCREVE BYTES DENTRO ARQUIVO: %d\n ", restante);
+                if (restante > 0) {
+                    char aux[size];
+                    memcpy(&aux, &buffer[size - restante + 1], (size_t) restante);
+                    printf("AUX: %s", aux);
+
+
+                    int retorno = escreve_bytes_final_arquivo(restante, handle, aux);
+                    if (retorno >= 0) {
+                        arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
+                        return retorno;
+                    }
+                } else {
+                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].current_pointer + size + 1;
+                    return size;
+
+                }
             }
+
+
+
             return -3;
         }
         return -1;
     }
     return -1;
 }
+
 
 int truncate2(FILE2 handle) {
     if (first_time) {
@@ -1068,17 +1235,14 @@ int seek2(FILE2 handle, unsigned int offset) {
 
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
-            if (offset <=
-                arquivos_abertos[handle].arquivo.bytesFileSize) { //Lembrar de corrigir <= após perguntar pro professor
-                //                if (offset == -1) {
-                //                    arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize+1;
-                //                    return 0;
-                //                }
-                //                else {
+            if (offset <= arquivos_abertos[handle].arquivo.bytesFileSize) {
                 arquivos_abertos[handle].current_pointer = offset;
                 return 0;
-                //                }
-
+            } else {
+                arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
+                printf("Como o seek informado eh maior do que o tamanho do arquivo, o current pointer foi posicionado apos"
+                               " a ultima posicao do arquivo: %d\n", arquivos_abertos[handle].current_pointer);
+                return 0;
             }
         }
     }
@@ -1102,14 +1266,14 @@ int mkdir2(char *pathname) {
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname, TYPEVAL_DIRETORIO);
 
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
         printf("ERRO: O diretorio ja existe.\n");
         return -3;
     }
 
-    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+    diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
 
     if (diretorio_pai.TypeVal == TYPEVAL_DIRETORIO) { //Pode criar diretório
 
@@ -1170,7 +1334,7 @@ int rmdir2(char *pathname) {
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
-    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+    record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname, TYPEVAL_DIRETORIO);
 
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
 
@@ -1189,7 +1353,7 @@ int rmdir2(char *pathname) {
                 return -1;
             }
 
-            diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio);
+            diretorio_pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
 
             int posicao_dir = busca_posicao_entrada(final, diretorio_pai.firstCluster);
 
@@ -1217,7 +1381,7 @@ int chdir2(char *pathname) {
     struct t2fs_record current;
 
     /* Busca e verifica a existência do diretório informado por 'pathname' */
-    current = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+    current = compara_nomes(SUPERBLOCO.RootDirCluster, pathname, TYPEVAL_DIRETORIO);
 
     /* Caso a entrada encontrada é um diretório, formata o caminho e o insere
      * no diretório atual */
@@ -1260,7 +1424,7 @@ DIR2 opendir2(char *pathname) {
     /* Se handle está no intervalo possível, busca e verifica a existência do diretório informado,
      * caso exista, o insere no array de diretórios abertos e marca como aberto. */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
-        record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname);
+        record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname, TYPEVAL_DIRETORIO);
         if (record.name != NULL && record.TypeVal == TYPEVAL_DIRETORIO) {
             diretorios_abertos[handle].diretorio = record;
             diretorios_abertos[handle].aberto = 1;
