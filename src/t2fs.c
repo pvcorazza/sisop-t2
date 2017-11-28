@@ -571,8 +571,6 @@ DWORD encontra_proximo_setor(int cluster) {
 
 int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
 
-    printf("ENTROU AQUI");
-
     /* Se o tamanho informado é maior que a diferença entre o current pointer e o tamanho, atualiza o tamanho a ser
      * lido para somente essa diferença. */
     if (size > arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer) {
@@ -641,7 +639,7 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
 
     int tamanho_a_escrever_original = tamanho_a_escrever;
 
-    printf("TAMANHO A ESCREVER ORIGINAL %d\n", tamanho_a_escrever_original);
+//    printf("TAMANHO A ESCREVER ORIGINAL %d\n", tamanho_a_escrever_original);
 
     int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
     char total_bytes_lidos[tamanho];
@@ -673,34 +671,34 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
 
         if ((SECTOR_SIZE - diferenca) < tamanho_a_escrever) {
             memcpy(&read_aux[diferenca], &buffer[0], (size_t) SECTOR_SIZE - diferenca);
-            printf("TAMANHO A ESCREVERL: %d\n", tamanho_a_escrever);
-            printf("DIFERENca: %d\n", diferenca);
+//            printf("TAMANHO A ESCREVERL: %d\n", tamanho_a_escrever);
+//            printf("DIFERENca: %d\n", diferenca);
             int teste = SECTOR_SIZE - diferenca;
             tamanho_a_escrever = tamanho_a_escrever - teste;
         } else {
-            printf("READ AUX ORIGINAL: %s\n", read_aux);
-            printf("BUFFER ORIGINAL: %s\n", buffer);
-            printf("TAMANHO A ESCREVER: %d\n", tamanho_a_escrever);
+//            printf("READ AUX ORIGINAL: %s\n", read_aux);
+//            printf("BUFFER ORIGINAL: %s\n", buffer);
+//            printf("TAMANHO A ESCREVER: %d\n", tamanho_a_escrever);
 
             memcpy(&read_aux[diferenca], &buffer[0], (size_t) tamanho_a_escrever);
             tamanho_a_escrever = 0;
         }
 
-        printf("READ AUX: %s\n", read_aux);
+//        printf("READ AUX: %s\n", read_aux);
         write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor, (unsigned char *) &read_aux);
-        printf("PRIMEIRO OFFSET SETOR %d\n", offset_setor);
+//        printf("PRIMEIRO OFFSET SETOR %d\n", offset_setor);
         if (tamanho_a_escrever == 0) {
-            printf("RETORNO NO PRIMEIRO SETOR");
+//            printf("RETORNO NO PRIMEIRO SETOR");
             return size - tamanho_a_escrever_original;
         }
 
-        printf("TAMANHO A ESCREVER ANTES DO PRIMEIRO WHILE: %d\n", tamanho_a_escrever);
+//        printf("TAMANHO A ESCREVER ANTES DO PRIMEIRO WHILE: %d\n", tamanho_a_escrever);
 
         while (++offset_setor < 4) {
-            printf("OFFSET SETOR %d\n", offset_setor);
+//            printf("OFFSET SETOR %d\n", offset_setor);
             if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
                             (unsigned char *) &aux) == 0) {
-                printf("O QUE FALTA ESCREVER: %d\n", tamanho_a_escrever_original - tamanho_a_escrever);
+//                printf("O QUE FALTA ESCREVER: %d\n", tamanho_a_escrever_original - tamanho_a_escrever);
                 if (SECTOR_SIZE < tamanho_a_escrever) {
 
 
@@ -711,12 +709,12 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
                            (size_t) tamanho_a_escrever);
                     tamanho_a_escrever = 0;
                 }
-                printf("AUX 2: %s\n", aux);
+//                printf("AUX 2: %s\n", aux);
 
                 write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
                              (unsigned char *) &aux);
                 if (tamanho_a_escrever == 0) {
-                    printf("RETORNO NO PRIMEIRO CLUSTER");
+//                    printf("RETORNO NO PRIMEIRO CLUSTER");
                     return size - tamanho_a_escrever_original;
                 }
             } else {
@@ -735,8 +733,8 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
         for (i = 0; i < 4; i++) {
             if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) == 0) {
 
-                printf("O NEXT É %d\n", next);
-                printf("O AUX É %s\n", aux);
+//                printf("O NEXT É %d\n", next);
+//                printf("O AUX É %s\n", aux);
 
                 getchar();
 
@@ -752,7 +750,7 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
 
                 write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux);
                 if (tamanho_a_escrever == 0) {
-                    printf("RETORNO NO CLUSTER %d", next);
+//                    printf("RETORNO NO CLUSTER %d", next);
                     return size - tamanho_a_escrever_original;
                 }
 
@@ -847,7 +845,7 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
         for (j = deslocamento_cluster + 1; j < 4 && qtd_copiada < size; j++) {
             memcpy(&aux, &copia_buffer[qtd_copiada], (size_t) SECTOR_SIZE);
-            printf("AUX: %s", aux);
+//            printf("AUX: %s", aux);
 
 //            getchar();
 
@@ -1189,10 +1187,12 @@ int write2(FILE2 handle, char *buffer, int size) {
             } else {
                 int restante = escreve_bytes_dentro_arquivo(size, handle, buffer);
                 printf("RESTANTE APOS ESCREVE BYTES DENTRO ARQUIVO: %d\n ", restante);
+
+
                 if (restante > 0) {
                     char aux[size];
-                    memcpy(&aux, &buffer[size - restante + 1], (size_t) restante);
-                    printf("AUX: %s", aux);
+                    memcpy(&aux, &buffer[size - restante], (size_t) restante);
+//                    printf("AUX: %s", aux);
 
 
                     int retorno = escreve_bytes_final_arquivo(restante, handle, aux);

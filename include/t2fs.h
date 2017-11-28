@@ -369,6 +369,12 @@ int inicializa();
 /* Chama as funções disponíveis para leitura do primeiro setor lógico do disco e armazena no superbloco. */
 static int read_superblock();
 
+void printspace(int offset);
+
+void tree2(int cluster, int offset);
+
+void print_open_files();
+
 
 ////Busca por uma posição onde não tenha um diretório aberto
 //DIR2 busca_pos_array_dir();
