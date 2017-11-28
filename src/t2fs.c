@@ -18,12 +18,14 @@ struct arq_aberto arquivos_abertos[MAX_ABERTOS];
 
 /* Variável que indica se é a primeira vez que tenta executar a API (se sim, o superbloco ainda não foi lido) */
 int first_time = 1;
-char current_path[8192] = "/";
+char *current_path;
 
 int inicializa() {
 
     if (read_superblock() == 0) {
 
+        current_path = malloc(sizeof(strlen("/")));
+        strcpy(current_path, "/");
         TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
         NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
         first_time = 0;
@@ -224,6 +226,7 @@ int conta_entradas_diretorio(int cluster) {
     return entradas;
 }
 
+/* Insere entrada em determinada posição de um cluster de diretório informado */
 int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
 
     if (first_time) {
@@ -252,7 +255,7 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
     }
 }
 
-
+/* Busca por uma entrada livre no cluster de um diretório */
 int busca_entrada_livre_dir(int cluster) {
     struct t2fs_record raiz;
 
@@ -276,6 +279,8 @@ int busca_entrada_livre_dir(int cluster) {
     return -1;
 }
 
+/* Recebe um nome e um cluster de diretório e retorna a posição que esta entrada está
+ * no diretório informado */
 int busca_posicao_entrada(char *name, int cluster) {
     struct t2fs_record record;
 
@@ -300,7 +305,8 @@ int busca_posicao_entrada(char *name, int cluster) {
     return -1;
 }
 
-
+/* Recebe um caminho e o quebra em partes referentes aos diretórios, inserindo cada
+ * parter em um indice no array informado */
 void caminho_para_array(char *string, char *array[]) {
 
     if (first_time) {
@@ -315,6 +321,8 @@ void caminho_para_array(char *string, char *array[]) {
     }
 }
 
+
+/* Verificar se o caminho informato é absoluto */
 int verifica_absoluto(char *path) {
 
     if (path[0] == '/') {
@@ -325,6 +333,8 @@ int verifica_absoluto(char *path) {
 
 }
 
+/* Função auxiliar para tratar caminhos absolutos. Útil para a futura manipulação
+ * de separação entre caminho e nome do arquivo/diretório */
 int insere_caminho_raiz(char *novo, char *path) {
     novo[0] = '/';
     novo[1] = '.';
@@ -342,6 +352,7 @@ int insere_caminho_raiz(char *novo, char *path) {
     return 0;
 }
 
+/* Formata o caminho informado. Quando for relativo, concatena com o current path */
 void formata_caminho(char *pathname, char *string) {
 //    printf("PATHNAME DENTRO DO FORMATA CAMINHO: %s\n", pathname);
 
@@ -358,10 +369,11 @@ void formata_caminho(char *pathname, char *string) {
     }
 }
 
+/* Recebe um caminho e o divide entre parte inicial, referente ao caminho, e parte final
+ * referente ao nome do arquivo/diretório */
 int divide_caminho(char *pathname, char *inicio, char *final) {
 
     /* Formata caminho para correta divisão entre caminho e nome do arquivo */
-
     char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
     formata_caminho(pathname, caminho_formatado);
 
@@ -380,6 +392,18 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
 
     return 0;
 }
+
+
+/* Recebe um nome de arquivo e retorna 0 se o nome está dentro do limite definido para um nome
+ * de arquivo no disco */
+int verifica_tamanho_nome(char *nome) {
+
+    if (strlen(nome) <= MAX_FILE_NAME_SIZE) {
+        return 0;
+    }
+    return -1;
+}
+
 
 struct t2fs_record compara_nomes(int cluster, char *pathname, int typeval) {
 
@@ -938,6 +962,12 @@ FILE2 create2(char *filename) {
         return -1;
     }
 
+    /* Verifica se o nome do arquivo está dentro do limite */
+    if (verifica_tamanho_nome(final) < 0) {
+        printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+        return -2;
+    }
+
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
@@ -1010,6 +1040,12 @@ int delete2(char *filename) {
         return -1;
     }
 
+    /* Verifica se o nome do arquivo está dentro do limite */
+    if (verifica_tamanho_nome(final) < 0) {
+        printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+        return -2;
+    }
+
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
@@ -1063,6 +1099,12 @@ FILE2 open2(char *filename) {
 
         if (divide_caminho(filename, inicio, final) < 0) {
             return -1;
+        }
+
+        /* Verifica se o nome do arquivo está dentro do limite */
+        if (verifica_tamanho_nome(final) < 0) {
+            printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+            return -2;
         }
 
         pai = compara_nomes(SUPERBLOCO.RootDirCluster, inicio, TYPEVAL_DIRETORIO);
@@ -1263,6 +1305,12 @@ int mkdir2(char *pathname) {
         return -1;
     }
 
+    /* Verifica se o nome do diretorio está dentro do limite */
+    if (verifica_tamanho_nome(final) < 0) {
+        printf("ERRO: Nome do diretorio maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+        return -2;
+    }
+
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
@@ -1331,6 +1379,12 @@ int rmdir2(char *pathname) {
         return -1;
     }
 
+    /* Verifica se o nome do diretorio está dentro do limite */
+    if (verifica_tamanho_nome(final) < 0) {
+        printf("ERRO: Nome do diretorio maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+        return -2;
+    }
+
     struct t2fs_record diretorio_pai;
     struct t2fs_record record;
 
@@ -1388,6 +1442,8 @@ int chdir2(char *pathname) {
     if (current.TypeVal == TYPEVAL_DIRETORIO) {
         char caminho_formatado[strlen(pathname) + strlen(current_path) + 2];
         formata_caminho(pathname, caminho_formatado);
+        free(current_path);
+        current_path = malloc(sizeof(strlen(caminho_formatado)));
         strcpy(current_path, caminho_formatado);
         return 0;
     }
