@@ -29,7 +29,7 @@ int inicializa() {
         TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
         NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
         first_time = 0;
-        inicializa_fat();
+//        inicializa_fat();
         return 0;
     }
 
@@ -110,7 +110,7 @@ void le_diretorio(int cluster) {
 
     int i;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
 
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
@@ -148,7 +148,7 @@ void tree2(int cluster, int offset) {
     if(cluster == SUPERBLOCO.RootDirCluster)
         printf("\n/\n");
 
-    for(i=0; i<4; i++) {
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
         for (j = 0; j < SECTOR_SIZE; j = j + 64) {    // j começa de 128 para não pegar '.' e '..'
@@ -210,7 +210,7 @@ int conta_entradas_diretorio(int cluster) {
     int i;
     int entradas = 0;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
 
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
@@ -235,9 +235,9 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
 
     int primeiro_setor_cluster = SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster;
 
-    int setor = primeiro_setor_cluster + (posicao / 4);
+    int setor = primeiro_setor_cluster + (posicao / SUPERBLOCO.SectorsPerCluster);
 
-    int pos_inserir = posicao % 4;
+    int pos_inserir = posicao % SUPERBLOCO.SectorsPerCluster;
 
     unsigned char buffer[SECTOR_SIZE];
 
@@ -262,7 +262,7 @@ int busca_entrada_livre_dir(int cluster) {
     int i;
     int entrada = 0;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
 
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
@@ -289,7 +289,7 @@ int busca_posicao_entrada(char *name, int cluster) {
     int i;
     int entrada = 0;
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
         unsigned char buffer[SECTOR_SIZE];
         read_sector(SUPERBLOCO.DataSectorStart + cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
 
@@ -438,7 +438,7 @@ struct t2fs_record compara_nomes(int cluster, char *pathname, int typeval) {
     struct t2fs_record record_retorno = {0};
 
     while (array[k] != NULL) {
-        for (i = 0; i < 4; i++) {
+        for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
 
             unsigned char buffer[SECTOR_SIZE];
             read_sector(SUPERBLOCO.DataSectorStart + temp_cluster * SUPERBLOCO.SectorsPerCluster + i, &buffer[0]);
@@ -532,7 +532,6 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
     }
 
     while (buffer[posicao] >= 0x00000002 && buffer[posicao] <= 0xFFFFFFFD) {
-        printf("ENTROU NO WHILE, posicao: %d, buffer: %X\n", posicao, buffer[posicao]);
         int proxima = buffer[posicao];
         buffer[posicao] = entrada;
         if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
@@ -575,15 +574,14 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
      * lido para somente essa diferença. */
     if (size > arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer) {
         size = arquivos_abertos[handle].arquivo.bytesFileSize - arquivos_abertos[handle].current_pointer;
-        printf("SIZE: %d\n\n", size);
     }
 
-    int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
+    int tamanho =
+            arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * SUPERBLOCO.SectorsPerCluster) + SECTOR_SIZE;
     char total_bytes_lidos[tamanho];
     total_bytes_lidos[0] = '\0';
 
-    int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / 4;
-//    printf("OFFSET CLUSTER= %d", offset_cluster);
+    int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / SUPERBLOCO.SectorsPerCluster;
     int offset_cluster_original = offset_cluster;
     int i = 0;
 
@@ -594,14 +592,16 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
         offset_cluster--;
     }
 
-    int offset_setor = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) - 4 * offset_cluster_original;
-    int diferenca =
-            arquivos_abertos[handle].current_pointer - (arquivos_abertos[handle].current_pointer / 256) * SECTOR_SIZE;
+    int offset_setor = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) -
+                       SUPERBLOCO.SectorsPerCluster * offset_cluster_original;
+    int diferenca = arquivos_abertos[handle].current_pointer -
+                    (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) * SECTOR_SIZE;
 
     char aux[SECTOR_SIZE];
 
-    for (i = 0; i < 4 - offset_setor; i++) {
-        if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i + offset_setor,
+    for (i = 0; i < SUPERBLOCO.SectorsPerCluster - offset_setor; i++) {
+        if (read_sector(
+                (unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + i + offset_setor,
                         (unsigned char *) &aux) == 0) {
             strcat(total_bytes_lidos, aux);
         } else {
@@ -612,8 +612,9 @@ int le_bytes_arquivo(int size, FILE2 handle, char *buffer) {
     next = encontra_proximo_setor(next);
 
     while (next != 0xFFFFFFFF) {
-        for (i = 0; i < 4; i++) {
-            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + i, (unsigned char *) &aux) == 0) {
+        for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
+            if (read_sector((unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + i,
+                            (unsigned char *) &aux) == 0) {
                 strcat(total_bytes_lidos, aux);
             } else {
                 return -1;
@@ -641,11 +642,12 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
 
 //    printf("TAMANHO A ESCREVER ORIGINAL %d\n", tamanho_a_escrever_original);
 
-    int tamanho = arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * 4) + SECTOR_SIZE;
+    int tamanho =
+            arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * SUPERBLOCO.SectorsPerCluster) + SECTOR_SIZE;
     char total_bytes_lidos[tamanho];
     total_bytes_lidos[0] = '\0';
 
-    int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / 4;
+    int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / SUPERBLOCO.SectorsPerCluster;
 //    printf("OFFSET CLUSTER= %d", offset_cluster);
     int offset_cluster_original = offset_cluster;
     int i = 0;
@@ -657,51 +659,37 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
         offset_cluster--;
     }
 
-    int offset_setor = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) - 4 * offset_cluster_original;
-    int diferenca =
-            arquivos_abertos[handle].current_pointer - (arquivos_abertos[handle].current_pointer / 256) * SECTOR_SIZE;
-
+    int offset_setor = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) -
+                       SUPERBLOCO.SectorsPerCluster * offset_cluster_original;
+    int diferenca = arquivos_abertos[handle].current_pointer -
+                    (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) * SECTOR_SIZE;
 
     char read_aux[SECTOR_SIZE];
     char aux[SECTOR_SIZE];
 
-
-    if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor, (unsigned char *) &read_aux) ==
-        0) {
+    if (read_sector((unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + offset_setor,
+                    (unsigned char *) &read_aux) == 0) {
 
         if ((SECTOR_SIZE - diferenca) < tamanho_a_escrever) {
             memcpy(&read_aux[diferenca], &buffer[0], (size_t) SECTOR_SIZE - diferenca);
-//            printf("TAMANHO A ESCREVERL: %d\n", tamanho_a_escrever);
-//            printf("DIFERENca: %d\n", diferenca);
             int teste = SECTOR_SIZE - diferenca;
             tamanho_a_escrever = tamanho_a_escrever - teste;
         } else {
-//            printf("READ AUX ORIGINAL: %s\n", read_aux);
-//            printf("BUFFER ORIGINAL: %s\n", buffer);
-//            printf("TAMANHO A ESCREVER: %d\n", tamanho_a_escrever);
-
             memcpy(&read_aux[diferenca], &buffer[0], (size_t) tamanho_a_escrever);
             tamanho_a_escrever = 0;
         }
 
-//        printf("READ AUX: %s\n", read_aux);
-        write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor, (unsigned char *) &read_aux);
-//        printf("PRIMEIRO OFFSET SETOR %d\n", offset_setor);
+        write_sector((unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + offset_setor,
+                     (unsigned char *) &read_aux);
         if (tamanho_a_escrever == 0) {
-//            printf("RETORNO NO PRIMEIRO SETOR");
             return size - tamanho_a_escrever_original;
         }
 
-//        printf("TAMANHO A ESCREVER ANTES DO PRIMEIRO WHILE: %d\n", tamanho_a_escrever);
-
-        while (++offset_setor < 4) {
-//            printf("OFFSET SETOR %d\n", offset_setor);
-            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
+        while (++offset_setor < SUPERBLOCO.SectorsPerCluster) {
+            if (read_sector(
+                    (unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + offset_setor,
                             (unsigned char *) &aux) == 0) {
-//                printf("O QUE FALTA ESCREVER: %d\n", tamanho_a_escrever_original - tamanho_a_escrever);
                 if (SECTOR_SIZE < tamanho_a_escrever) {
-
-
                     memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever], (size_t) SECTOR_SIZE);
                     tamanho_a_escrever = tamanho_a_escrever - SECTOR_SIZE;
                 } else {
@@ -709,20 +697,16 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
                            (size_t) tamanho_a_escrever);
                     tamanho_a_escrever = 0;
                 }
-//                printf("AUX 2: %s\n", aux);
-
-                write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart + offset_setor,
-                             (unsigned char *) &aux);
+                write_sector(
+                        (unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart + offset_setor,
+                        (unsigned char *) &aux);
                 if (tamanho_a_escrever == 0) {
-//                    printf("RETORNO NO PRIMEIRO CLUSTER");
                     return size - tamanho_a_escrever_original;
                 }
             } else {
                 return -1;
             }
         }
-
-
     } else {
         return -1;
     }
@@ -730,14 +714,9 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
     next = encontra_proximo_setor(next);
 
     while (next != 0xFFFFFFFF && tamanho_a_escrever != 0) {
-        for (i = 0; i < 4; i++) {
-            if (read_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) == 0) {
-
-//                printf("O NEXT É %d\n", next);
-//                printf("O AUX É %s\n", aux);
-
-                getchar();
-
+        for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
+            if (read_sector((unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart,
+                            (unsigned char *) &aux) == 0) {
                 if (SECTOR_SIZE < tamanho_a_escrever) {
                     memcpy(&aux[0], &buffer[tamanho_a_escrever_original - tamanho_a_escrever], (size_t) SECTOR_SIZE);
                     tamanho_a_escrever = tamanho_a_escrever - SECTOR_SIZE;
@@ -746,24 +725,18 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
                            (size_t) tamanho_a_escrever);
                     tamanho_a_escrever = 0;
                 }
-
-
-                write_sector((unsigned int) next * 4 + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux);
+                write_sector((unsigned int) next * SUPERBLOCO.SectorsPerCluster + SUPERBLOCO.DataSectorStart,
+                             (unsigned char *) &aux);
                 if (tamanho_a_escrever == 0) {
-//                    printf("RETORNO NO CLUSTER %d", next);
                     return size - tamanho_a_escrever_original;
                 }
-
             } else {
                 return -1;
             }
         }
         next = encontra_proximo_setor(next);
     }
-
     return size - tamanho_a_escrever_original;
-
-
 }
 
 int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
@@ -775,10 +748,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
     memcpy(&copia_buffer, buffer, (size_t) size);
 
     copia_buffer[size] = '\0';
-
-//    printf("COPIA BUFFER: %s\n", copia_buffer);
-
-//    getchar();
 
     char aux[SECTOR_SIZE] = {0};
 
@@ -792,33 +761,25 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
         next = encontra_proximo_setor(next);
     }
 
-    int deslocamento_cluster = (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) % 4;
+    int deslocamento_cluster =
+            (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) % SUPERBLOCO.SectorsPerCluster;
 
-    if (read_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
-                    (unsigned char *) &aux) != 0) {
-
-
+    if (read_sector(
+            (unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
+            (unsigned char *) &aux) != 0) {
         return -1;
     }
-
-//    printf("DESLOCAMENTO CLUSTER: %d\n", deslocamento_cluster);
 
     int num_bytes_escritos = arquivos_abertos[handle].arquivo.bytesFileSize -
                              (arquivos_abertos[handle].arquivo.bytesFileSize / SECTOR_SIZE) *
                              SECTOR_SIZE; /* Bytes escritos no último bloco */
     int num_bytes_livres = SECTOR_SIZE - num_bytes_escritos; /* Bytes livres no último bloco */
 
-//    printf("Num bytes escritos: %d\n", num_bytes_escritos);
-//    printf("Num bytes livres: %d\n", num_bytes_livres);
-
-    // getchar();
-
     /* Se é possivel escrever em somente um setor */
-
-
     if (size <= num_bytes_livres) {
         memcpy(&aux[num_bytes_escritos], copia_buffer, (size_t) size);
-        if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
+        if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + deslocamento_cluster +
+                         SUPERBLOCO.DataSectorStart,
                          (unsigned char *) &aux) != 0) {
             printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
@@ -831,8 +792,8 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
         memcpy(&aux[num_bytes_escritos], copia_buffer, (size_t) num_bytes_livres);
 
-        if (write_sector((unsigned int) anterior * 4 + deslocamento_cluster + SUPERBLOCO.DataSectorStart,
-                         (unsigned char *) &aux) != 0) {
+        if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + deslocamento_cluster +
+                         SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) != 0) {
             printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
         }
@@ -841,15 +802,12 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
         /* Preenche o restante do último cluster já alocado do arquivo */
 
         int j;
-        int restante = (SECTOR_SIZE * 4 - num_bytes_escritos) / SECTOR_SIZE;
 
-        for (j = deslocamento_cluster + 1; j < 4 && qtd_copiada < size; j++) {
+        for (j = deslocamento_cluster + 1; j < SUPERBLOCO.SectorsPerCluster && qtd_copiada < size; j++) {
             memcpy(&aux, &copia_buffer[qtd_copiada], (size_t) SECTOR_SIZE);
-//            printf("AUX: %s", aux);
 
-//            getchar();
-
-            if (write_sector((unsigned int) anterior * 4 + j + SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) !=
+            if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + j + SUPERBLOCO.DataSectorStart,
+                             (unsigned char *) &aux) !=
                 0) {
                 printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                 return -1;
@@ -872,42 +830,29 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
             proximo_setor = busca_pos_livre_FAT();
 
-//            inicializa();
-//            imprime_conteudo_fat();
-//
-//            getchar();
-
             int i = 0;
 
-            while (qtd_copiada < size && i < 4) {
+            while (qtd_copiada < size && i < SUPERBLOCO.SectorsPerCluster) {
 
                 char novo[SECTOR_SIZE] = {0};
                 memcpy(&novo, &copia_buffer[qtd_copiada], (size_t) SECTOR_SIZE);
 
-                if (write_sector((unsigned int) (anterior * 4) + i + SUPERBLOCO.DataSectorStart,
-                                 (unsigned char *) &novo) != 0) {
+                if (write_sector(
+                        (unsigned int) (anterior * SUPERBLOCO.SectorsPerCluster) + i + SUPERBLOCO.DataSectorStart,
+                        (unsigned char *) &novo) != 0) {
                     printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                     return -1;
                 }
 
-                printf("NOVO: %s", aux);
-
-//                getchar();
                 qtd_copiada = qtd_copiada + SECTOR_SIZE;
                 i++;
             }
         }
-        //insere_entrada_FAT(anterior, 0xFFFFFFFF);
     }
 
     /* Atualiza o tamanho do arquivo na sua entrada correspondente no diretório pai */
 
     arquivos_abertos[handle].arquivo.bytesFileSize = arquivos_abertos[handle].arquivo.bytesFileSize + size;
-
-
-//    printf("NOME ANTES DE ENTRAR : ");
-//    puts(arquivos_abertos[handle].arquivo.name);
-
 
     int posicao_dir = busca_posicao_entrada(arquivos_abertos[handle].arquivo.name,
                                             arquivos_abertos[handle].diretorio_pai.firstCluster);
@@ -919,16 +864,14 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
     if (insere_entrada(arquivos_abertos[handle].diretorio_pai.firstCluster, arquivos_abertos[handle].arquivo,
                        posicao_dir) < 0) {
-        printf("PROBLEMA NO INSERE ENTRADA\n");
-
         return -1;
     }
 
     return size;
 }
 
-
 int identify2(char *name, int size) {
+    print_superbloco_info();
 
     if (first_time) {
         inicializa();
@@ -1015,7 +958,7 @@ FILE2 create2(char *filename) {
                     arquivos_abertos[handle].arquivo = novo;
                     printf("Nome no create %s\n", arquivos_abertos[handle].arquivo.name);
                     arquivos_abertos[handle].aberto = 1;
-                    arquivos_abertos[handle].current_pointer = 0; //Conferir se é isso mesmo.
+                    arquivos_abertos[handle].current_pointer = 0;
                     arquivos_abertos[handle].diretorio_pai = diretorio_pai;
                     return handle;
                 }
@@ -1101,7 +1044,6 @@ FILE2 open2(char *filename) {
 
         /* Verifica se o nome do arquivo está dentro do limite */
         if (verifica_tamanho_nome(final) < 0) {
-            printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
             return -2;
         }
 
@@ -1116,7 +1058,7 @@ FILE2 open2(char *filename) {
         }
     }
 
-    return -1;
+    return -3;
 }
 
 int close2(FILE2 handle) {
@@ -1176,8 +1118,6 @@ int write2(FILE2 handle, char *buffer, int size) {
      * e retorna o numero de bytes escritos */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
-
-
             if (arquivos_abertos[handle].current_pointer > arquivos_abertos[handle].arquivo.bytesFileSize) {
                 int retorno = escreve_bytes_final_arquivo(size, handle, buffer);
                 if (retorno >= 0) {
@@ -1186,15 +1126,10 @@ int write2(FILE2 handle, char *buffer, int size) {
                 }
             } else {
                 int restante = escreve_bytes_dentro_arquivo(size, handle, buffer);
-                printf("RESTANTE APOS ESCREVE BYTES DENTRO ARQUIVO: %d\n ", restante);
-
 
                 if (restante > 0) {
                     char aux[size];
                     memcpy(&aux, &buffer[size - restante], (size_t) restante);
-//                    printf("AUX: %s", aux);
-
-
                     int retorno = escreve_bytes_final_arquivo(restante, handle, aux);
                     if (retorno >= 0) {
                         arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
@@ -1206,9 +1141,6 @@ int write2(FILE2 handle, char *buffer, int size) {
 
                 }
             }
-
-
-
             return -3;
         }
         return -1;
@@ -1221,7 +1153,6 @@ int truncate2(FILE2 handle) {
     if (first_time) {
         inicializa();
     }
-
 
     /* Se o handle informado está dentro do intervalo possível para arquivos abertos e
      * o arquivo com o handle informado está aberto */
@@ -1275,15 +1206,17 @@ int seek2(FILE2 handle, unsigned int offset) {
         inicializa();
     }
 
+    /* Verifica se o handle informado está dentro do intervalo possível para arquivos abertos
+     * e o arquivo com o handle informado está aberto. Caso o offset informado seja menor ou
+     * igual ao tamanho do arquivo, posiciona o current pointer na posição informada, caso contrário
+     * (-1 ou maior que o tamanho do arquivo), posiciona o current pointer após o final do arquivo */
     if (handle >= 0 && handle <= MAX_ABERTOS) {
         if (arquivos_abertos[handle].aberto == 1) {
-            if (offset <= arquivos_abertos[handle].arquivo.bytesFileSize) {
+            if (offset <= arquivos_abertos[handle].arquivo.bytesFileSize && offset >= 0) {
                 arquivos_abertos[handle].current_pointer = offset;
                 return 0;
             } else {
                 arquivos_abertos[handle].current_pointer = arquivos_abertos[handle].arquivo.bytesFileSize + 1;
-                printf("Como o seek informado eh maior do que o tamanho do arquivo, o current pointer foi posicionado apos"
-                               " a ultima posicao do arquivo: %d\n", arquivos_abertos[handle].current_pointer);
                 return 0;
             }
         }
@@ -1307,7 +1240,6 @@ int mkdir2(char *pathname) {
 
     /* Verifica se o nome do diretorio está dentro do limite */
     if (verifica_tamanho_nome(final) < 0) {
-        printf("ERRO: Nome do diretorio maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
         return -2;
     }
 
@@ -1317,7 +1249,6 @@ int mkdir2(char *pathname) {
     record = compara_nomes(SUPERBLOCO.RootDirCluster, pathname, TYPEVAL_DIRETORIO);
 
     if (record.TypeVal == TYPEVAL_DIRETORIO) {
-        printf("ERRO: O diretorio ja existe.\n");
         return -3;
     }
 
@@ -1342,7 +1273,7 @@ int mkdir2(char *pathname) {
                 strcpy(novo.name, final);
                 novo.firstCluster = (DWORD) posicao_FAT;
                 novo.TypeVal = TYPEVAL_DIRETORIO;
-                novo.bytesFileSize = 1024;
+                novo.bytesFileSize = SECTOR_SIZE * SUPERBLOCO.SectorsPerCluster;
 
                 if (insere_entrada(diretorio_pai.firstCluster, novo, posicao_dir) < 0) {
                     return -5;
@@ -1381,7 +1312,6 @@ int rmdir2(char *pathname) {
 
     /* Verifica se o nome do diretorio está dentro do limite */
     if (verifica_tamanho_nome(final) < 0) {
-        printf("ERRO: Nome do diretorio maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
         return -2;
     }
 
@@ -1510,7 +1440,7 @@ int readdir2(DIR2 handle, DIRENT2 *dentry) {
             /* Faz uma busca pelo cluster de diretório pela entrada de número "current_entry",
              * caso encontre, copia os dados para a estrutura dentry, incrementa a "current_entry
              * do diretório e retorna indicando sucesso */
-            for (i = 0; i < 4; i++) {
+            for (i = 0; i < SUPERBLOCO.SectorsPerCluster; i++) {
                 unsigned char buffer[SECTOR_SIZE];
                 read_sector(SUPERBLOCO.DataSectorStart +
                             diretorios_abertos[handle].diretorio.firstCluster * SUPERBLOCO.SectorsPerCluster + i,
