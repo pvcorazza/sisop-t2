@@ -29,7 +29,6 @@ int inicializa() {
         TOTAL_SETORES_FAT = SUPERBLOCO.DataSectorStart - SUPERBLOCO.pFATSectorStart;
         NUM_CLUSTERS = ((SUPERBLOCO.NofSectors - SUPERBLOCO.DataSectorStart) / SUPERBLOCO.SectorsPerCluster);
         first_time = 0;
-//        inicializa_fat();
         return 0;
     }
 
@@ -41,7 +40,6 @@ static int read_superblock() {
     BYTE buffer[SECTOR_SIZE];
 
     if (read_sector(0, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Leitura do superbloco não foi feita com sucesso!\n\n");
         return -1;
     } else {
         memcpy(&SUPERBLOCO, buffer, 32);
@@ -54,7 +52,6 @@ static int inicializa_fat() {
     int i, j = 0;
     for (i = SUPERBLOCO.pFATSectorStart; i <= TOTAL_SETORES_FAT + 1; i++) {
         if (read_sector((unsigned int) i, (unsigned char *) &FAT[j]) != 0) {
-            printf("ERRO: Nao foi possivel fazer a leitura da FAT 1. \n");
             return -1;
         } else {
             j = j + 64;
@@ -87,6 +84,8 @@ void print_superbloco_info() {
 }
 
 void imprime_conteudo_fat() {
+
+    inicializa_fat();
 
     if (first_time) {
         inicializa();
@@ -242,7 +241,6 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
     unsigned char buffer[SECTOR_SIZE];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Nao foi possivel fazer a leitura da entrada. \n");
         return -1;
     }
 
@@ -250,7 +248,6 @@ int insere_entrada(int cluster, struct t2fs_record entrada, int posicao) {
 
 
     if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
         return -1;
     }
 }
@@ -283,8 +280,6 @@ int busca_entrada_livre_dir(int cluster) {
  * no diretório informado */
 int busca_posicao_entrada(char *name, int cluster) {
     struct t2fs_record record;
-
-//    printf("NOME %s, CLUSTER: %d\n", name, cluster);
 
     int i;
     int entrada = 0;
@@ -340,9 +335,7 @@ int insere_caminho_raiz(char *novo, char *path) {
     novo[1] = '.';
     novo[2] = '\0';
 
-
     if (verifica_absoluto(path) != 0) {
-        printf("ERRO. Caminho nao eh absoluto.");
         return -1;
     }
 
@@ -354,7 +347,6 @@ int insere_caminho_raiz(char *novo, char *path) {
 
 /* Formata o caminho informado. Quando for relativo, concatena com o current path */
 void formata_caminho(char *pathname, char *string) {
-//    printf("PATHNAME DENTRO DO FORMATA CAMINHO: %s\n", pathname);
 
     if (verifica_absoluto(pathname) == 0) {
         insere_caminho_raiz(string, pathname);
@@ -382,7 +374,6 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
 
     char *temp_final = strrchr(temp_inicio, '/');
     if (temp_final == NULL) {
-        printf("ERRO: Nao pode dividir caminho");
         return -1;
     }
 
@@ -395,15 +386,24 @@ int divide_caminho(char *pathname, char *inicio, char *final) {
 
 
 /* Recebe um nome de arquivo e retorna 0 se o nome está dentro do limite definido para um nome
- * de arquivo no disco */
-int verifica_tamanho_nome(char *nome) {
+ * de arquivo no disco e contém somente caracteres permitidos */
+int verifica_nome(char *nome) {
 
-    if (strlen(nome) <= MAX_FILE_NAME_SIZE) {
-        return 0;
+    if (strlen(nome) > MAX_FILE_NAME_SIZE - 1) {
+        return -1;
     }
-    return -1;
-}
 
+    int i;
+
+    for (i = 0; i < strlen(nome); i++) {
+        if (nome[i] < 0x21 || nome[i] > 0x7a) {
+            return -1;
+        }
+    }
+
+    return 0;
+
+}
 
 struct t2fs_record compara_nomes(int cluster, char *pathname, int typeval) {
 
@@ -450,8 +450,6 @@ struct t2fs_record compara_nomes(int cluster, char *pathname, int typeval) {
                     encontrou = 1;
                     temp_cluster = record.firstCluster;
                     record_retorno = record;
-
-
                 }
             }
         }
@@ -502,7 +500,6 @@ int busca_pos_livre_FAT() {
 
     while (i <= TOTAL_SETORES_FAT + 1) {
         if (read_sector((unsigned int) i, (unsigned char *) &buffer) != 0) {
-            printf("ERRO: Nao foi possivel fazer a leitura da FAT 2. \n");
             return -1;
         } else {
             j = 0;
@@ -522,20 +519,20 @@ int busca_pos_livre_FAT() {
 
 int insere_entrada_FAT(int posicao, DWORD entrada) {
 
-    int setor = posicao / SECTOR_SIZE + SUPERBLOCO.pFATSectorStart;
+    int setor = (posicao / 64) + SUPERBLOCO.pFATSectorStart;
+    posicao = posicao % 64;
 
     DWORD buffer[64];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Nao foi possivel fazer a leitura da FAT 3. \n");
         return -1;
     }
 
     while (buffer[posicao] >= 0x00000002 && buffer[posicao] <= 0xFFFFFFFD) {
         int proxima = buffer[posicao];
         buffer[posicao] = entrada;
+
         if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-            printf("ERRO: Nao foi possivel fazer a escrita da FAT. \n");
             return -1;
         }
         posicao = proxima;
@@ -543,7 +540,7 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
 
     buffer[posicao] = entrada;
     if (write_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Nao foi possivel fazer a escrita da FAT. \n");
+        imprime_conteudo_fat();
         return -1;
     }
 
@@ -551,12 +548,13 @@ int insere_entrada_FAT(int posicao, DWORD entrada) {
 }
 
 DWORD encontra_proximo_setor(int cluster) {
-    int setor = (cluster / SECTOR_SIZE) + SUPERBLOCO.pFATSectorStart;
+
+    int setor = (cluster / 64) + SUPERBLOCO.pFATSectorStart;
+    cluster = cluster % 64;
 
     DWORD buffer[64];
 
     if (read_sector((unsigned int) setor, (unsigned char *) &buffer) != 0) {
-        printf("ERRO: Nao foi possivel fazer a leitura da FAT 4. \n");
         return 0xFFFFFFFF;
     }
 
@@ -640,15 +638,12 @@ int escreve_bytes_dentro_arquivo(int size, FILE2 handle, char *buffer) {
 
     int tamanho_a_escrever_original = tamanho_a_escrever;
 
-//    printf("TAMANHO A ESCREVER ORIGINAL %d\n", tamanho_a_escrever_original);
-
     int tamanho =
             arquivos_abertos[handle].arquivo.bytesFileSize + (SECTOR_SIZE * SUPERBLOCO.SectorsPerCluster) + SECTOR_SIZE;
     char total_bytes_lidos[tamanho];
     total_bytes_lidos[0] = '\0';
 
     int offset_cluster = (arquivos_abertos[handle].current_pointer / SECTOR_SIZE) / SUPERBLOCO.SectorsPerCluster;
-//    printf("OFFSET CLUSTER= %d", offset_cluster);
     int offset_cluster_original = offset_cluster;
     int i = 0;
 
@@ -781,7 +776,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
         if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + deslocamento_cluster +
                          SUPERBLOCO.DataSectorStart,
                          (unsigned char *) &aux) != 0) {
-            printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
         }
     } else {
@@ -794,7 +788,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 
         if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + deslocamento_cluster +
                          SUPERBLOCO.DataSectorStart, (unsigned char *) &aux) != 0) {
-            printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
             return -1;
         }
         qtd_copiada = qtd_copiada + num_bytes_livres;
@@ -809,7 +802,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
             if (write_sector((unsigned int) anterior * SUPERBLOCO.SectorsPerCluster + j + SUPERBLOCO.DataSectorStart,
                              (unsigned char *) &aux) !=
                 0) {
-                printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                 return -1;
             }
 
@@ -840,7 +832,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
                 if (write_sector(
                         (unsigned int) (anterior * SUPERBLOCO.SectorsPerCluster) + i + SUPERBLOCO.DataSectorStart,
                         (unsigned char *) &novo) != 0) {
-                    printf("ERRO: Nao foi possivel fazer a escrita da entrada. \n");
                     return -1;
                 }
 
@@ -858,7 +849,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
                                             arquivos_abertos[handle].diretorio_pai.firstCluster);
 
     if (posicao_dir < 0) {
-        printf("Posicao dir %d\n", posicao_dir);
         return -1;
     }
 
@@ -871,7 +861,6 @@ int escreve_bytes_final_arquivo(int size, FILE2 handle, char *buffer) {
 }
 
 int identify2(char *name, int size) {
-    print_superbloco_info();
 
     if (first_time) {
         inicializa();
@@ -903,9 +892,8 @@ FILE2 create2(char *filename) {
         return -1;
     }
 
-    /* Verifica se o nome do arquivo está dentro do limite */
-    if (verifica_tamanho_nome(final) < 0) {
-        printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+    /* Verifica se o nome do arquivo está dentro do limite e possui caracteres válidos */
+    if (verifica_nome(final) < 0) {
         return -2;
     }
 
@@ -916,7 +904,6 @@ FILE2 create2(char *filename) {
     record = compara_nomes(SUPERBLOCO.RootDirCluster, filename, TYPEVAL_REGULAR);
 
     if (record.TypeVal == TYPEVAL_REGULAR) {
-        printf("ERRO: O arquivo ja existe.\n");
         return -1;
     }
 
@@ -941,7 +928,7 @@ FILE2 create2(char *filename) {
                     return -1;
                 }
 
-                struct t2fs_record novo;
+                struct t2fs_record novo = {0};
 
                 strcpy(novo.name, final);
                 novo.firstCluster = (DWORD) posicao_FAT;
@@ -956,7 +943,6 @@ FILE2 create2(char *filename) {
 
                 if (handle >= 0 && handle <= MAX_ABERTOS) {
                     arquivos_abertos[handle].arquivo = novo;
-                    printf("Nome no create %s\n", arquivos_abertos[handle].arquivo.name);
                     arquivos_abertos[handle].aberto = 1;
                     arquivos_abertos[handle].current_pointer = 0;
                     arquivos_abertos[handle].diretorio_pai = diretorio_pai;
@@ -981,9 +967,8 @@ int delete2(char *filename) {
         return -1;
     }
 
-    /* Verifica se o nome do arquivo está dentro do limite */
-    if (verifica_tamanho_nome(final) < 0) {
-        printf("ERRO: Nome do arquivo maior do que o limite de %d caracteres.\n", MAX_FILE_NAME_SIZE);
+    /* Verifica se o nome do arquivo está dentro do limite e contém caracteres válidos */
+    if (verifica_nome(final) < 0) {
         return -2;
     }
 
@@ -1042,8 +1027,8 @@ FILE2 open2(char *filename) {
             return -1;
         }
 
-        /* Verifica se o nome do arquivo está dentro do limite */
-        if (verifica_tamanho_nome(final) < 0) {
+        /* Verifica se o nome do arquivo está dentro do limite e possui caracteres válidos */
+        if (verifica_nome(final) < 0) {
             return -2;
         }
 
@@ -1238,8 +1223,8 @@ int mkdir2(char *pathname) {
         return -1;
     }
 
-    /* Verifica se o nome do diretorio está dentro do limite */
-    if (verifica_tamanho_nome(final) < 0) {
+    /* Verifica se o nome do diretorio está dentro do limite e possui caracteres válidos */
+    if (verifica_nome(final) < 0) {
         return -2;
     }
 
@@ -1268,7 +1253,7 @@ int mkdir2(char *pathname) {
                     return -4;
                 }
 
-                struct t2fs_record novo;
+                struct t2fs_record novo = {0};
 
                 strcpy(novo.name, final);
                 novo.firstCluster = (DWORD) posicao_FAT;
@@ -1310,8 +1295,8 @@ int rmdir2(char *pathname) {
         return -1;
     }
 
-    /* Verifica se o nome do diretorio está dentro do limite */
-    if (verifica_tamanho_nome(final) < 0) {
+    /* Verifica se o nome do diretorio está dentro do limite e possui caracteres válidos*/
+    if (verifica_nome(final) < 0) {
         return -2;
     }
 
